@@ -1,0 +1,224 @@
+
+# #!/bin/bash
+# #$ -cwd
+# #$ -o sublogs/A04b_check_bismark.$JOB_ID
+# #$ -j y
+# #$ -l h_rt=2:00:00,h_data=4G
+# #$ -N A04b_bischeck
+# #$ -hold_jid A04a_bismark
+
+
+
+echo "Job $JOB_ID started on:   " `hostname -s`
+echo "Job $JOB_ID started on:   " `date `
+echo " "
+
+
+
+
+
+# environment init ------------------—------------------—-----------------------
+
+export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
+
+
+
+
+# extract target filepaths ------------------—------------------—---------------
+
+cd $projdir
+
+query_metadat () {
+  awk -F',' -v targetcol="$1" \
+      'NR==1 {
+                for (i=1;i<=NF;i++) {
+                    if ($i==targetcol) {assayout=i; break} }
+                print $assayout
+              } 
+      NR>1 {
+                print $assayout
+            }' $metadat_well
+}
+
+check_filepaths_in_assay() {
+    for file in $@
+        do 
+        if [[ ! -s $file ]]
+            then
+                echo "missing '$file'"
+            fi
+        done
+}
+
+check_filepath_in_batch() {
+target_array=$@
+for ((target_batch=1; target_batch<=$nbatches; target_batch++))
+    do
+        target_well_rows=()
+        for ((row=1; row<=nwells; row++))
+        do
+            if [[ "${batchnum[$row]}" == "$target_batch" ]]
+            then
+                target_well_rows+=($row)
+            fi
+        done
+        
+        batch_allc_list=()
+        for row in ${target_well_rows[@]}
+        do
+            batch_allc_list+=(${allctbi[$row]})
+        done
+        
+        num_allc_missing=$(check_filepaths_in_assay ${batch_allc_list[@]} | wc -l)
+        echo -e "${target_batch} \t $num_allc_missing"
+
+    done \
+    | awk -F "\t" '($2 > 0) { print $0 }'
+}
+
+batchnum=($(query_metadat "batchnum"))
+
+nwells=${#batchnum[@]}
+nbatches=${batchnum[-1]}
+
+
+
+# apply checks for A04a output ------------------—------------------—-----------
+
+cd $projdir
+
+echo "-----------------------------------------------------------------"
+echo "A. printing number of .allc files missing (by batch)... "
+echo "-----------------------------------------------------------------"
+
+allcgz=($(query_metadat "A04a_allc_final"))
+allctbi=($(query_metadat "A04a_allctbi_final"))
+allctxt=($(query_metadat "A04a_txt_allccheck"))
+
+echo "checking allc.tsv.gz"
+echo -e "batchnum\tnum_missing"
+check_filepath_in_batch ${allcgz[@]}
+
+echo "checking allc.tsv.gz.tbi"
+echo -e "batchnum\tnum_missing"
+check_filepath_in_batch ${allctbi[@]}
+
+echo "checking allc_check.txt"
+echo -e "batchnum\tnum_missing"
+check_filepath_in_batch ${allctxt[@]}
+
+echo -e "\n\nsuggest re-running and checking sublog output of above batches."
+
+
+
+echo -e "\n\n-----------------------------------------------------------------"
+echo "B. checking each expected file (from $metadat_well)"
+echo -e "-----------------------------------------------------------------\n"
+
+echo -e "\nchecking .allc.gz files:\n"
+check_filepaths_in_assay ${allcgz[@]}
+
+echo -e "\nchecking .allc.gz.tbi files:\n"
+check_filepaths_in_assay ${allctbi[@]}
+
+echo -e "\nchecking allc_check.txt files:\n"
+check_filepaths_in_assay ${allctxt[@]}
+
+echo -e "\n* checks the A04a output columns of 'metadat_well' if the file exists and is non-empty."
+echo "* if none missing, will only output target column names above."
+echo "* if some declared 'missing' but all other checks OK, may just be no/few reads surviving trimming."
+echo "  (check 'fastq_demultip/' and associated fastp logs e.g., fastq_trimmed/wellprefix.html report)"
+
+
+
+
+
+echo "-----------------------------------------------------------------"
+echo "C. checking list of .allc.gz.tbi files (by plate)..."
+echo "-----------------------------------------------------------------"
+
+
+echo -e "\nnumber of .allc.gz files found:\n"
+prefix_num=0
+for prefix in $(cut -f 2 -d ',' $metadat_plate | tail -n +2);
+    do
+        let "prefix_num+=1"
+        find mapping_bismark/ -maxdepth 2 -mindepth 2  -wholename "*${prefix}*/allc.tsv.gz" \
+            | awk -F '\\/' '{print $2 "\t" $0}' > Scripts/A04b_allclists_${prefix_num}.tsv
+        nallc_plate=$(wc -l Scripts/A04b_allclists_${prefix_num}.tsv | awk -F " " '{print $1}')
+        echo "$prefix : $nallc_plate"
+        let "ntot_allc+=$nallc_plate"
+done
+
+echo -e "\nnumber of .allc.gz.tbi files found:\n"
+for prefix in $(cut -f 2 -d ',' $metadat_plate | tail -n +2);
+    do
+        nallctbi_plate=$(
+            find mapping_bismark/ -maxdepth 2 -mindepth 2  -wholename "*${prefix}*/allc_check.txt" | wc -l)
+        echo "$prefix : $nallctbi_plate"
+        let "ntot_allctbi+=$nallctbi_plate"
+done
+
+echo -e "\nnumber of allc_check.txt files found:\n"
+for prefix in $(cut -f 2 -d ',' $metadat_plate | tail -n +2);
+    do
+        nallcchecktxt_plate=$(
+            find mapping_bismark/ -maxdepth 2 -mindepth 2  -wholename "*${prefix}*/allc.tsv.gz.tbi" | wc -l)
+        echo "$prefix : $nallcchecktxt_plate"
+        let "ntot_allctxt+=$nallcchecktxt_plate"
+done
+
+echo -e "\ncompare to the number of trimmed R1 .fastq.gz files found...:\n"
+for prefix in $(cut -f 2 -d ',' $metadat_plate | tail -n +2);
+    do
+        ntrimmed_plate=$(
+            find fastq_trimmed/ -maxdepth 1 -mindepth 1  -wholename "*${prefix}*paired_R1.fastq.gz" | wc -l)
+        echo "$prefix : $ntrimmed_plate"
+        let "ntot_allctxt+=$ntrimmed_plate"
+done
+
+
+echo "* expected same # .allc as of # trimmed .fastq.gz files input into bismark mapping."
+
+
+
+
+echo -e "\n\n-----------------------------------------------------------------"
+echo "C. checking log files for issues."
+echo -e "-----------------------------------------------------------------\n"
+
+for txtfile in ${allctxt[@]}
+    do
+        if [[ -s $txtfile ]]
+        then
+            if $(grep -q 'WARNING' $txtfile && grep -vq 'file sizes' $txtfile)
+            then 
+                echo "warning in '$txtfile' ?"
+            fi
+        fi
+    done
+
+
+echo -e "\n\n-----------------------------------------------------------------"
+echo "C. checking log files for issues."
+echo -e "-----------------------------------------------------------------\n"
+
+
+
+echo "checking if 'completed' in sublogs/A04a_bismark* output."
+echo "if any filename is printed, the associated batch may have not completed mapping."
+
+grep -c 'A04a_bismark completed' sublogs/A04b_bismark* | awk -F ":" '$2==0 {print $1}'
+
+
+
+
+
+echo -e "\n\n'A04b_bischeck' completed.\n\n"
+
+
+
+echo "Job $JOB_ID ended on:   " `hostname -s`
+echo "Job $JOB_ID ended on:   " `date `
+echo " "
+

@@ -1,0 +1,46 @@
+
+#!/bin/bash
+#$ -cwd
+#$ -o sublogs/A08_compile_final.$JOB_ID
+#$ -j y
+#$ -N A08_compile_metadata
+#$ -l h_rt=0:30:00,h_data=4G
+#$ -hold_jid A06_compile_RNA,A07_compile_RNA
+
+
+
+echo "Job $JOB_ID started on:   " `hostname -s`
+echo "Job $JOB_ID started on:   " `date `
+echo " "
+
+
+
+# environment init ------------------—------------------—---------------------
+
+. /u/local/Modules/default/init/modules.sh # <--
+module load anaconda3 # <--
+conda activate snmCTseq # <--
+
+export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
+
+
+
+# run metadat scripts ------------------—------------------—------------------
+
+# - recommend running these interactively in python/Jupyter to check outputs
+# - have a distinct RNA/DNA script available in case one modality finishes first
+#   & the analyst wants a quick look at the data
+
+python Scripts/A08a_final_metadat_DNA.py
+python Scripts/A08b_final_metadat_RNA.py
+python Scripts/A08c_metadata_RNADNA.py
+
+
+
+
+echo -e "\n\n'A08_compile_all' completed.\n\n"
+
+
+echo "Job $JOB_ID ended on:   " `hostname -s`
+echo "Job $JOB_ID ended on:   " `date `
+echo " "

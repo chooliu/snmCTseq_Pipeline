@@ -1,0 +1,44 @@
+
+#!/bin/bash
+#$ -cwd
+#$ -o sublogs/A01b_plate_metadata.$JOB_ID
+#$ -j y
+#$ -N A01b_plate_metadata
+#$ -l h_rt=0:10:00,h_data=4G
+#$ -hold_jid A01a_merge_lanes
+
+
+echo "Job $JOB_ID started on:   " `hostname -s`
+echo "Job $JOB_ID started on:   " `date `
+echo " "
+
+
+
+# environment init ------------------—------------------—-----------------------
+
+. /u/local/Modules/default/init/modules.sh # <--
+module load anaconda3 # <--
+conda activate snmCTseq # <--
+
+export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
+
+
+
+# run metadata compilation ------------------—------------------—---------------
+
+# because the two scripts are so fast,
+# violating tidy convention and just running both here
+# (suggest running these in interactive mode anyway)
+
+python Scripts/A01b_plate_metadata.py
+python Scripts/A01c_well_filepaths.py
+
+
+
+echo -e "\n\n'A01b_plate_metadata' completed.\n\n"
+
+
+
+echo "Job $JOB_ID ended on:   " `hostname -s`
+echo "Job $JOB_ID ended on:   " `date `
+echo " "

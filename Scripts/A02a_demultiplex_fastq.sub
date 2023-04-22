@@ -1,0 +1,58 @@
+
+#!/bin/bash
+#$ -cwd
+#$ -o sublogs/A02a_demultiplex.$JOB_ID.$TASK_ID
+#$ -j y
+#$ -l h_rt=6:00:00,h_data=24G
+#$ -t 1-16
+#$ -N A02a_demultip
+#$ -hold_jid_ad A01a_merge_lanes
+
+
+
+echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `hostname -s`
+echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `date `
+echo " "
+
+
+
+
+
+# environment init -------------------------------------------------------------
+
+. /u/local/Modules/default/init/modules.sh # <--
+module load anaconda3 # <--
+conda activate snmCTseq # <--
+
+export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
+
+
+
+# extract target filepaths -----------------------------------------------------
+
+platename=$(awk -v linenum=$SGE_TASK_ID -F ',' '$1 == linenum' $metadat_plate | cut -d , -f 2)
+
+r1file="fastq_raw/${platename}_R1.fastq.gz"
+r2file="fastq_raw/${platename}_R2.fastq.gz"
+
+
+
+# apply perl script for each of two index files --------------------------------
+
+for index_file in {1..2}
+do
+    echo -e "\n\ndemultiplexing ${r1file} and ${r2file} with index set ${index_file} of 2..."
+    perl Scripts/A02a_demultiplex_fastq.pl $r1file $r2file \
+    Scripts/A02a_cellbarcodes_subset${index_file}.fa
+done
+
+
+echo -e "\n\n'A02a_demultip' completed.\n\n"
+
+
+
+
+echo " "
+echo "Job $JOB_ID.$SGE_TASK_ID ended on:   " `hostname -s`
+echo "Job $JOB_ID.$SGE_TASK_ID ended on:   " `date `
+echo " "

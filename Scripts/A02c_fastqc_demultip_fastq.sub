@@ -1,0 +1,101 @@
+
+#!/bin/bash
+#$ -cwd
+#$ -o sublogs/A02c_fastqc_demultip.$JOB_ID
+#$ -j y
+#$ -N A02c_fastqc_demultip
+#$ -l h_rt=8:00:00,h_data=8G
+#$ -pe shared 4
+#$ -hold_jid A02a_demultip
+
+
+
+echo "Job $JOB_ID started on:   " `hostname -s`
+echo "Job $JOB_ID started on:   " `date `
+echo " "
+
+
+
+
+# environment init ------------------—------------------—-----------------------
+
+. /u/local/Modules/default/init/modules.sh # <--
+module load anaconda3 # <--
+conda activate snmCTseq # <--
+
+export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
+
+
+# fastqc specific parameters
+n_wells=4  # <-- num wells/plate to sample
+overwrite_random_wells=false # <-- overwrite target list of wells (false by default)
+
+mkdir qc_demultip
+
+
+
+
+# choose random wells ------------------—------------------—--------------------
+
+# randomly select $n_wells from each prefix associated with 'raw_fastq' R1s to run fastqc on
+# & saves the names of the corresponding demultiplexed R1 .fastq in "$wells_to_run"
+
+# warning: will overwrite this .txt if already exists,
+# to avoid re-running more files than expected / the same files multiple times
+
+if [[ -e $wells_to_run && "$overwrite_random_wells" == true ]]
+    then
+    
+        echo "warning: Scripts/A02c_random_fastqc_wells.txt already exists."
+        echo "deleting and re-randomizing. (overwrite_random_wells=true)"
+
+        rm $wells_to_run
+fi
+
+# make random samples (otherwise skip)
+if [[ ! -e $wells_to_run ]]
+then
+    for prefix in $(cut -f 2 -d ',' $metadat_plate | tail -n +2);
+        do
+        printf '%s\n' $(ls fastq_demultip/${prefix}*R1*fastq.gz \
+                        | shuf \
+                        | head -n $n_wells) \
+             >> $wells_to_run
+        done
+else
+    echo "warning: Scripts/A02c_random_fastqc_wells.txt already exists."
+    echo "using existing random wells. (overwrite_random_wells=false)"
+fi
+
+# print wells for record in sublog
+echo -e "\nnum wells sampled: $(wc -l $wells_to_run)\n"
+cat $wells_to_run
+
+
+
+# apply fastqc ------------------—------------------—---------------------------
+
+# run fastqc on the randomly selected wells
+echo "running fastqc on each well."
+while read r1file;
+    do
+        r2file=${r1file/R1/R2}
+        fastqc -t 4 ${r1file} -o qc_demultip/
+        fastqc -t 4 ${r2file} -o qc_demultip/
+    done < $wells_to_run
+
+# compile across wells
+echo "aggregating via multiqc."
+multiqc -d qc_demultip -o qc_demultip -n multiqc_fastqc \
+    --cl-config "sp: { fastqc/zip: {fn: '*_fastqc.zip' } }" -m "fastqc"
+
+
+
+
+echo -e "\n\n'A02c_fastqc_demultip_fastq' completed.\n\n"
+
+
+echo " "
+echo "Job $JOB_ID ended on:   " `hostname -s`
+echo "Job $JOB_ID ended on:   " `date `
+echo " "

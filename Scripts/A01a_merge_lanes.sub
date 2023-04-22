@@ -1,0 +1,85 @@
+
+#!/bin/bash
+#$ -cwd
+#$ -o sublogs/A01a_merge_lanes.$JOB_ID.$TASK_ID
+#$ -j y
+#$ -l h_rt=12:00:00,h_data=16G
+#$ -N A01a_merge_lanes
+#$ -t 1-16
+
+
+
+echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `hostname -s`
+echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `date `
+echo " "
+
+
+
+
+
+# environment init ------------------—------------------—-----------------------
+
+. /u/local/Modules/default/init/modules.sh # <--
+module load anaconda3 # <--
+conda activate snmCTseq # <--
+
+export $(cat snmCT_parameters.env | grep -v '^#' | xargs)  # <--
+
+
+
+# get list of plates, files ------------------—------------------—--------------
+
+cd $dir_proj
+mkdir fastq_raw
+
+list_of_plates=(
+  $(for plateid in $dir_originalfastq/*R1*;
+    do
+    echo $(basename ${plateid%_L00[1-4]_*});
+    done | uniq | sort))
+target_plate=${list_of_plates[$SGE_TASK_ID - 1]}
+
+
+# print array task and plate name
+# make sure $target_plate is uniquely identifiable &
+# doesn't group more than the four lanes typically excepected
+echo -e "\n\ntarget plate number (SGE_TASK_ID):" $SGE_TASK_ID
+echo "target plate prefix:" $target_plate
+
+
+
+# merge R1, then R2 files across lanes ------------------—------------------—---
+
+filesin_r1=($(ls $dir_fastq/*$target_plate*R1*fastq.gz))
+filesin_r2=($(ls $dir_fastq/*$target_plate*R2*fastq.gz))
+
+echo -e "\n\nmerging Read 1 files:"
+for file in ${filesin_r1[@]}
+do 
+    du -h $file
+done
+cat ${filesin_r1[@]} > fastq_raw/${target_plate}_R1.fastq.gz
+
+echo -e "\n\nmerging Read 2 files:"
+for file in ${filesin_r2[@]}
+do 
+    du -h $file
+done
+cat ${filesin_r2[@]} > fastq_raw/${target_plate}_R2.fastq.gz
+
+
+
+# check output files ------------------—------------------—---------------------
+
+echo -e "\n\nchecking output file sizes."
+du -h fastq_raw/${target_plate}*fastq.gz
+
+echo -e "\n\n'A01a_merge_lanes' completed.\n\n"
+
+
+
+
+
+echo "Job $JOB_ID.$SGE_TASK_ID ended on:   " `hostname -s`
+echo "Job $JOB_ID.$SGE_TASK_ID ended on:   " `date `
+echo " "

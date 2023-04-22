@@ -1,0 +1,60 @@
+#$ -cwd
+#$ -o sublogs/A04c_makemcds.$JOB_ID.$TASK_ID
+#$ -j y
+#$ -l h_rt=24:00:00,h_data=8G,highp
+#$ -N A04c_mcdsgen
+#$ -t 1-16
+#$ -pe shared 8
+#$ -hold_jid A04b_bischeck
+
+
+
+echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `hostname -s`
+echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `date `
+echo " "
+
+
+
+
+# environment init ------------------—------------------—-----------------------
+
+. /u/local/Modules/default/init/modules.sh # <--
+module load anaconda3 # <--
+conda activate snmCTseq # <--
+
+export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
+
+
+
+# run mcds generation ------------------—------------------—--------------------
+
+# note: the .allc files are aggregated into the mcds
+# the mcds is not a single file, but more like a directory with binary compression
+
+mkdir mcds
+
+allcools generate-dataset  \
+    --allc_table Scripts/A04b_allclists_${SGE_TASK_ID}.tsv \
+    --output_path mcds/$SGE_TASK_ID.mcds \
+    --chrom_size_path $ref_chromsizes \
+    --obs_dim cell \
+    --cpu 8 \
+    --chunk_size 400 \
+    --regions chrom100k 100000 \
+    --regions genebody $ref_genebody \
+    --quantifiers chrom100k count CGN,CHN \
+    --quantifiers genebody count CGN,CHN
+
+# not standard, but but consider adding:
+#     --regions chrom5k 5000 \
+#     --regions geneslop2k $ref_geneslop2k \
+# (genebody +/- 2kb to include promoter region + increase cov)
+
+
+echo -e "\n\n'A04c_allc_to_mcds' completed.\n\n"
+
+
+
+echo "Job $JOB_ID.$SGE_TASK_ID ended on:   " `hostname -s`
+echo "Job $JOB_ID.$SGE_TASK_ID ended on:   " `date `
+echo " "

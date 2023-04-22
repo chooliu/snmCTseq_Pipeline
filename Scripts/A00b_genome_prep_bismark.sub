@@ -1,0 +1,42 @@
+
+#!/bin/bash
+#$ -cwd
+#$ -o sublogs/A00b_genome_prep_bismark.$JOB_ID
+#$ -j y
+#$ -N A00b_prep_bismark
+#$ -l h_rt=24:00:00,h_data=8G,highp
+#$ -pe shared 4
+#$ -hold_jid A00a_genome_dl_index
+
+
+
+echo "Job $JOB_ID started on:   " `hostname -s`
+echo "Job $JOB_ID started on:   " `date `
+echo " "
+
+
+
+# environment init ------------------—------------------—---------------------
+
+. /u/local/Modules/default/init/modules.sh # <--
+module load anaconda3 # <--
+conda activate snmCTseq # <--
+
+export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
+
+
+
+# bismark index ------------------—------------------—---------------------------
+
+cd $ref_dir
+bismark_genome_preparation $ref_gtf --bowtie2
+
+
+
+
+echo -e "\n\n'A00b_genome_prep_bismark' completed.\n\n"
+
+
+echo "Job $JOB_ID ended on:   " `hostname -s`
+echo "Job $JOB_ID ended on:   " `date `
+echo " "

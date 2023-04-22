@@ -1,0 +1,71 @@
+
+#!/bin/bash
+#$ -cwd
+#$ -o sublogs/A00a_genome_dl_index.$JOB_ID
+#$ -j y
+#$ -N A00a_genome_dl_index
+#$ -l h_rt=12:00:00,h_data=8G,highp 
+#$ -pe shared 4
+
+
+
+
+echo "Job $JOB_ID started on:   " `hostname -s`
+echo "Job $JOB_ID started on:   " `date `
+echo " "
+
+
+
+# environment init ------------------—------------------—---------------------
+
+. /u/local/Modules/default/init/modules.sh # <--
+module load anaconda3 # <--
+conda activate snmCTseq # <--
+
+export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
+
+
+
+# download/extract ref ------------------—------------------—-----------------
+
+cd $ref_dir
+
+# download gencode v40 (GRCh38.p13) .fa.gz & .gtf.gz
+# double check filepaths and hard-coded names here
+wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_40/GRCh38.primary_assembly.genome.fa.gz
+wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_40/gencode.v40.primary_assembly.annotation.gtf.gz
+
+# extract
+gunzip -c GRCh38.primary_assembly.genome.fa.gz > GRCh38.primary_assembly.genome.fa
+gunzip -c gencode.v40.primary_assembly.annotation.gtf.gz > gencode.v40.primary_assembly.annotation.gtf
+
+
+
+# note on working with Lambda phage or other spike-in (bisulfite conversion efficiency QC)
+# nice to add to reference genome at this step
+# e.g., Escherichia phage Lambda, complete genome (GenBank: J02459.1) via NCBI
+# wget "https://www.ncbi.nlm.nih.gov/sviewer/viewer.cgi?tool=portal&save=file$=seqview&db=nuccore&report=fasta&id=215104" -O lambda.fa
+# sed -i "1s/.*/>chrL/" lambda.fa
+# cat GRCh38.primary_assembly.genome.fa lambda.fa > GRCh38_plus_lambda.fa 
+
+
+
+# index, chrom sizes -----------------—------------------—----------------------
+
+# extract bp length/chromosome
+samtools faidx GRCh38.primary_assembly.genome.fa
+cut -f 1-2 GRCh38.primary_assembly.genome.fa.fai > chromsizes.tsv
+
+# .fa --> .dict 
+picard CreateSequenceDictionary -R GRCh38.primary_assembly.genome.fa
+
+
+
+
+
+echo -e "\n\n'A00a_bwa_index' completed.\n\n"
+
+
+echo "Job $JOB_ID ended on:   " `hostname -s`
+echo "Job $JOB_ID ended on:   " `date `
+echo " "

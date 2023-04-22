@@ -1,0 +1,60 @@
+
+#!/bin/bash
+#$ -cwd
+#$ -o sublogs/A00d_gtf_annotations_bed.$JOB_ID
+#$ -j y
+#$ -N A00d_gtf_annotations_bed
+#$ -l h_rt=0:30:00,h_data=8G
+
+
+
+echo "Job $JOB_ID started on:   " `hostname -s`
+echo "Job $JOB_ID started on:   " `date `
+echo " "
+
+
+
+# environment init ------------------—------------------—---------------------
+
+. /u/local/Modules/default/init/modules.sh # <--
+module load anaconda3 # <--
+conda activate snmCTseq # <--
+
+export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
+
+
+
+# process .gtf --> .bed ------------------—------------------—----------------
+
+mkdir $ref_dir/annotations
+
+python Scripts/A00d_gtf_annotations_bed.py
+
+
+# UCSC/Picard utilities for QC metrics ------------------—------------------—-
+
+cd $ref_dir
+
+# rRNA interval list
+picard BedToIntervalList -I annotations/rRNA.bed -O \
+    annotations/rRNA.intervallist -SD GRCh38.primary_assembly.genome.dict
+
+# ref flat
+gtfToGenePred -genePredExt -geneNameAsName2 $ref_gtf refFlat.tmp.txt
+cut -f 1-10 refFlat.tmp.txt > refFlat.tmp1
+cut -f 12 refFlat.tmp.txt > refFlat.tmp2
+
+paste refFlat.tmp1 refFlat.tmp2 > annotations/refFlat.txt
+gzip annotations/$refFlat.txt
+
+rm refFlat.tmp*
+
+
+
+
+echo -e "\n\n'A00d_gtf_annotations_bed' completed.\n\n"
+
+
+echo "Job $JOB_ID ended on:   " `hostname -s`
+echo "Job $JOB_ID ended on:   " `date `
+echo " "

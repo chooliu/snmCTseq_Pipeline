@@ -1,0 +1,128 @@
+
+# #!/bin/bash
+# #$ -cwd
+# #$ -o sublogs/A05b_check_star.$JOB_ID
+# #$ -j y
+# #$ -l h_rt=2:00:00,h_data=4G
+# #$ -N A05b_starcheck
+# #$ -hold_jid A05a_star
+
+
+
+echo "Job $JOB_ID started on:   " `hostname -s`
+echo "Job $JOB_ID started on:   " `date `
+echo " "
+
+
+
+
+
+# environment init ------------------—------------------—-----------------------
+
+export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
+
+
+
+# extract target filepaths ------------------—------------------—---------------
+
+cd $projdir
+
+query_metadat () {
+  awk -F',' -v targetcol="$1" \
+      'NR==1 {
+                for (i=1;i<=NF;i++) {
+                    if ($i==targetcol) {assayout=i; break} }
+                print $assayout
+              } 
+      NR>1 {
+                print $assayout
+            }' $metadat_well
+}
+
+check_filepaths_in_assay() {
+    for file in $@
+        do 
+        if [[ ! -s $file ]]
+            then
+                echo "missing '$file'"
+            fi
+        done
+}
+
+check_filepath_in_batch() {
+target_array=$@
+for ((target_batch=1; target_batch<=$nbatches; target_batch++))
+    do
+        target_well_rows=()
+        for ((row=1; row<=nwells; row++))
+        do
+            if [[ "${batchnum[$row]}" == "$target_batch" ]]
+            then
+                target_well_rows+=($row)
+            fi
+        done
+        
+        batch_allc_list=()
+        for row in ${target_well_rows[@]}
+        do
+            batch_allc_list+=(${allctbi[$row]})
+        done
+        
+        num_allc_missing=$(check_filepaths_in_assay ${batch_allc_list[@]} | wc -l)
+        echo -e "${target_batch} \t $num_allc_missing"
+
+    done \
+    | awk -F "\t" '($2 > 0) { print $0 }'
+}
+
+batchnum=($(query_metadat "batchnum"))
+
+nwells=${#batchnum[@]}
+nbatches=${batchnum[-1]}
+
+
+
+# apply checks for A05a output -------—------------------—----------------------
+
+echo "-----------------------------------------------------------------"
+echo "A. printing number of missing .bam files missing (by batch)... "
+echo "-----------------------------------------------------------------"
+
+bam_star_pe=($(query_metadat "A05a_bam_star_PE"))
+bam_star_se1=($(query_metadat "A05a_bam_star_SE1"))
+bam_star_se2=($(query_metadat "A05a_bam_star_SE2"))
+
+echo "checking PE.Aligned.out.bam"
+echo -e "batchnum\tnum_missing"
+check_filepath_in_batch ${bam_star_pe[@]}
+
+echo "checking SE1.Aligned.out.bam"
+echo -e "batchnum\tnum_missing"
+check_filepath_in_batch ${bam_star_se1[@]}
+
+echo "checking SE2.Aligned.out.bam"
+echo -e "batchnum\tnum_missing"
+check_filepath_in_batch ${bam_star_se2[@]}
+
+echo -e "\n\nsuggest re-running and checking sublog output of above batches."
+
+
+echo -e "\n\n-----------------------------------------------------------------"
+echo "B. checking log files for issues."
+echo -e "-----------------------------------------------------------------\n"
+
+
+echo "checking if 'completed' in sublogs/A05a_star* output."
+echo "if any filename is printed, the associated batch may have not completed mapping."
+
+grep -c 'A05a_star_mapping completed' sublogs/A05a_star* | awk -F ":" '$2==0 {print $1}'
+
+
+
+
+echo -e "\n\n'A05b_starcheck' completed.\n\n"
+
+
+echo "Job $JOB_ID ended on:   " `hostname -s`
+echo "Job $JOB_ID ended on:   " `date `
+echo " "

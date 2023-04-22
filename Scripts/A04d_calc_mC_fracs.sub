@@ -1,0 +1,184 @@
+
+#!/bin/bash
+#$ -cwd
+#$ -o sublogs/A04d_mCfracs.$JOB_ID.$TASK_ID
+#$ -j y
+#$ -l h_rt=8:00:00,h_data=4G
+#$ -N A04d_mCfracs
+#$ -t 1-256
+#$ -hold_jid A04a_bismark
+
+
+
+
+echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `hostname -s`
+echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `date `
+echo " "
+
+
+
+
+
+# environment init ------------------—------------------—-----------------------
+
+. /u/local/Modules/default/init/modules.sh # <--
+
+export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
+
+action_metadata_exists="overwrite" # <-- for help with incomplete jobs; overwrite, append, rename
+check_lambda=false # <-- lambda phage spike-in (currently we use only in snmC-seq2/3)
+check_autosomal_only=false # <-- exclude mitochondrial, scaffolds, lambda
+
+# output file
+# (should probably make these explicitly plate-named vs numbered in future)
+metadat_out=Metadata/A04d_mCfrac_${SGE_TASK_ID}.tsv
+
+
+
+
+# extract target filepaths ------------------—------------------—---------------
+
+# helper functions
+query_metadat () {
+  awk -F',' -v targetcol="$1" \
+      'NR==1 {
+                for (i=1;i<=NF;i++) {
+                    if ($i==targetcol) {assayout=i; break} }
+                print $assayout
+              }
+      NR>1 {
+                print $assayout
+            }' $metadat_well
+}
+
+# extract target wells, print values for log
+batchnum=($(query_metadat "batchnum"))
+nwells=${#batchnum[@]}
+
+target_well_rows=()
+for ((row=1; row<=nwells; row++))
+do
+    if [[ "${batchnum[$row]}" == "$SGE_TASK_ID" ]]
+    then
+        target_well_rows+=($row)
+    fi
+done
+
+wellprefix=($(query_metadat "wellprefix"))
+allcfile=($(query_metadat "A04a_allc_final"))
+
+# for methylation fraction
+calc_mC_frac () {
+    awk -v context=$1 '$4 ~ context' ${2:-$tmpfile} |
+        awk '{mC+=$5; tot+=$6} END {
+            if (tot == 0) { print "0\t0\tNA" } else { print mC "\t" tot "\t" mC/tot }}'
+}
+
+
+
+# print target files ------------------—------------------—---------------------
+
+echo "batch number: $SGE_TASK_ID"
+echo "processing the following rows in well metadata file ($metadat_well):"
+for row in ${target_well_rows[@]}
+    do
+        echo -e "$row\t${wellprefix[$row]}"
+    done
+echo -e "\n\n"
+
+
+
+# checking for existing metadata file ------------------—------------------—----
+
+# columns are wellprefix, then for a given sequence context
+# num reads supporting methylation, total coverage, then fraction methylated
+
+header="wellprefix\tmLam\tLam\tmLamfrac\tmCCC\tCCC\tmCCCfrac\tmCG\tCG\tmCGfrac\tmCH\tCH\tmCHfrac\n"
+
+if [[ ! -e $metadat_out ]]
+then
+    printf $header > $metadat_out
+else
+    echo "WARNING: $metadat_out seems to already exist."
+    if [[ $action_metadata_exists == "overwrite" ]]
+        then
+        echo "overwriting the existing file. (action_metadata_exists=='overwrite')."
+        cat "$header" > $metadat_out
+    elif [[ $action_metadata_exists == "append" ]]
+        then
+            echo "appending to the existing file. (action_metadata_exists=='append')"
+    elif [[ $action_metadata_exists == "rename" ]]
+        then
+            metadat_out=Metadata/A04d_mCfrac_${SGE_TASK_ID}_B.tsv
+            echo "renaming output file to $metadat_out to avoid overwriting (action_metadata_exists=='rename')."
+            cat "$header" > $metadat_out
+    else
+        echo "exiting. (check 'action_metadata_exists' variable if to change action.)"
+        exit 1
+    fi
+fi
+
+
+
+
+# loop through allc, calculate methylation fracs ------------------—------------
+# assuming methylation given for CHN or CGN contexts
+# (usually <1 minute per file)
+
+for row in ${target_well_rows[@]} 
+do
+
+    # check for existing mapping output
+    # if final outputs exist, skip; else run awk tabulization
+    cd $projdir
+    
+    if [[ ! -s mapping_bismark/${wellprefix[$row]}/$allc_final \
+        && ! -s mapping_bismark/${wellprefix[$row]}/$allctbi_final ]]
+    then
+        echo -e "error: final .allc files for '${wellprefix[$row]}' missing. skipping this well.'"
+    else
+    
+    echo "processing '${wellprefix[$row]}'..."
+        
+    # create temporary unzipped .allc file to awk through
+    # (if there are "tmp_*" files in '$projdir/Metadata', this script may have failed/timeout)
+    tmpfile="Metadata/tmp_${wellprefix[$row]}"
+    if [[ "$check_lambda" == "true" ]]
+    then
+        # use a partially methylated lambda, methylated at all but CAG, CTG
+        gunzip -c ${allcfile[$row]} | awk '$1 == "chrL" && $4 != "CAG" && $4 != "CTG"' \
+                > ${tmpfile}_lambda
+        mlambda=$(calc_mC_frac "^[ACTG][ACTG][ACTG]" ${tmpfile}_lambda )
+        rm ${tmpfile}_lambda
+    else
+        mlambda="0\t0\tNA"
+    fi
+    
+    if [[ "$check_autosomal_only" == "true" ]]
+        then
+            gunzip -c ${allcfile[$row]} | awk '$1 ~ "^chr[0-9]"' > $tmpfile
+        else
+            gunzip -c ${allcfile[$row]} | awk '$1 != "chrL"' > $tmpfile
+    fi
+
+    # calculate CCC, CGN, CHN
+    mccc=$( calc_mC_frac "^CCC" )
+    mcg=$( calc_mC_frac "^CG[ACTG]" )
+    mch=$( calc_mC_frac "^C[ACT][ACTG]" )
+
+    # record metrics, remove tmp file
+    echo -e "${wellprefix[$row]}\t${mlambda}\t${mccc}\t${mcg}\t${mch}\n" >> $metadat_out
+    rm $tmpfile
+
+fi
+done
+
+
+
+echo -e "\n\n'A04d_calc_mC_fracs' completed.\n\n"
+
+
+
+echo "Job $JOB_ID.$SGE_TASK_ID ended on:   " `hostname -s`
+echo "Job $JOB_ID.$SGE_TASK_ID ended on:   " `date `
+echo " "

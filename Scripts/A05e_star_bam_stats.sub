@@ -1,0 +1,120 @@
+
+#!/bin/bash
+#$ -cwd
+#$ -o sublogs/A05g_samstat_star.$JOB_ID.$TASK_ID
+#$ -j y
+#$ -l h_rt=8:00:00,h_data=24G
+#$ -N A05e_samstat_star
+#$ -t 1-256
+#$ -hold_jid_ad A05c_starfilt
+
+
+
+
+echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `hostname -s`
+echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `date `
+echo " "
+
+
+
+# environment init ------------------—------------------—-----------------------
+
+. /u/local/Modules/default/init/modules.sh # <--
+module load anaconda3 # <--
+conda activate snmCTseq # <--
+
+export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
+
+skip_complete=true # <-- for help with incomplete jobs
+
+
+
+
+# extract target filepaths ------------------—------------------—---------------
+
+# helper functions
+query_metadat () {
+  awk -F',' -v targetcol="$1" \
+      'NR==1 {
+                for (i=1;i<=NF;i++) {
+                    if ($i==targetcol) {assayout=i; break} }
+                print $assayout
+              }
+      NR>1 {
+                print $assayout
+            }' $metadat_well
+}
+
+# extract target wells, print values for log
+
+batchnum=($(query_metadat "batchnum"))
+nwells=${#batchnum[@]}
+
+target_well_rows=()
+for ((row=1; row<=nwells; row++))
+do
+    if [[ "${batchnum[$row]}" == "$SGE_TASK_ID" ]]
+    then
+        target_well_rows+=($row)
+    fi
+done
+
+
+
+# filepaths associated with target rows in well-level metadata -----------------
+
+wellprefix=($(query_metadat "wellprefix"))
+dir_well=($(query_metadat "A05a_dir_star"))
+
+
+
+# samtools stats on each well in the batch --—------------------—---------------
+
+for row in ${target_well_rows[@]} 
+do
+
+    cd $projdir
+    
+    if [[ -s ${dir_well[$row]}/samstats_PE \
+        && -s ${dir_well[$row]}/samstats_SE1 \
+        && -s ${dir_well[$row]}/samstats_SE2 \
+        && -s ${dir_well[$row]}/picard_PE \
+        && -s ${dir_well[$row]}/picard_SE1 \
+        && -s ${dir_well[$row]}/picard_SE2 \
+        && "$skip_complete"=="true" ]]
+    then
+        echo -e "final aligned .bams for '${wellprefix[$row]}' already exist. skipping this well.'"
+    else
+    
+        echo -e "\n\nprofiling .bams from '${wellprefix[$row]}'...\n\n"
+
+        cd ${dir_well[$row]}
+        
+        # run samtools stats
+        samtools stats PE.Final.bam | grep '^SN' | cut -f 2,3 > samstats_PE
+        samtools stats SE1.Final.bam | grep '^SN' | cut -f 2,3 > samstats_SE1
+        samtools stats SE2.Final.bam | grep '^SN' | cut -f 2,3 > samstats_SE2
+
+        # run picard collectrnaseqmetrics
+        samtools sort PE.Final.bam | \
+            picard CollectRnaSeqMetrics -I /dev/stdin -O picard_PE \
+            --REF_FLAT $ref_flat -STRAND "NONE" --RIBOSOMAL_INTERVALS $ref_rrna
+        samtools sort SE1.Final.bam | \
+            picard CollectRnaSeqMetrics -I /dev/stdin -O picard_SE1 \
+            --REF_FLAT $ref_flat -STRAND "NONE" --RIBOSOMAL_INTERVALS $ref_rrna
+        samtools sort SE2.Final.bam | \
+            picard CollectRnaSeqMetrics -I /dev/stdin -O picard_SE2 \
+            --REF_FLAT $ref_flat -STRAND "NONE" --RIBOSOMAL_INTERVALS $ref_rrna
+            
+    fi
+done
+
+
+echo -e "\n\n'A05e_samstat_star' completed.\n\n"
+
+
+
+echo "Job $JOB_ID.$SGE_TASK_ID ended on:   " `hostname -s`
+echo "Job $JOB_ID.$SGE_TASK_ID ended on:   " `date `
+echo " "
+

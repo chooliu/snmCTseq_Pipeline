@@ -1,0 +1,177 @@
+
+#!/bin/bash
+#$ -cwd
+#$ -o sublogs/A05c_starfilt.$JOB_ID.$TASK_ID
+#$ -j y
+#$ -l h_rt=8:00:00,h_data=8G
+#$ -N A05c_starfilt
+#$ -t 1-256
+#$ -hold_jid_ad A05a_star
+
+
+
+echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `hostname -s`
+echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `date `
+echo " "
+
+
+
+
+# environment init ------------------—------------------—-----------------------
+
+. /u/local/Modules/default/init/modules.sh # <--
+module load anaconda3 # <--
+conda activate snmCTseq # <--
+
+export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
+
+skip_complete=true # <-- for help with incomplete jobs
+
+
+
+# extract target filepaths ------------------—------------------—---------------
+
+# helper functions
+query_metadat () {
+  awk -F',' -v targetcol="$1" \
+      'NR==1 {
+                for (i=1;i<=NF;i++) {
+                    if ($i==targetcol) {assayout=i; break} }
+                print $assayout
+              }
+      NR>1 {
+                print $assayout
+            }' $metadat_well
+}
+
+# extract target wells, print values for log
+
+batchnum=($(query_metadat "batchnum"))
+nwells=${#batchnum[@]}
+
+target_well_rows=()
+for ((row=1; row<=nwells; row++))
+do
+    if [[ "${batchnum[$row]}" == "$SGE_TASK_ID" ]]
+    then
+        target_well_rows+=($row)
+    fi
+done
+
+
+
+# filepaths associated with target rows in well-level metadata -----------------
+
+wellprefix=($(query_metadat "wellprefix"))
+dir_well=($(query_metadat "A05a_dir_star"))
+
+
+
+# set naming convention within each well folder -------------—------------------
+
+# .bam files in (from A05a)
+bam_in_pe=PE.Aligned.out.bam
+bam_in_se1=SE1.Aligned.out.bam
+bam_in_se2=SE2.Aligned.out.bam
+
+# final .sam
+sam_q10_pe=q10_pe.sam
+sam_q10_se1=q10_se1.sam
+sam_q10_se2=q10_se2.sam
+
+# final .bam
+bam_final_pe=PE.Final.bam
+bam_final_se1=SE1.Final.bam
+bam_final_se2=SE2.Final.bam
+
+# map each well
+for row in ${target_well_rows[@]} 
+do
+
+    # check directory/prior mapping ------------------—------------------—-----
+    # check for existing mapping output
+    # if final outputs exist, skip; else run filtering of direct STAR align
+    
+    cd $projdir
+    
+    if [[ -s ${dir_well[$row]}/$bam_final_pe \
+        && -s ${dir_well[$row]}/$bam_final_se1 \
+        && -s ${dir_well[$row]}/$bam_final_se2 \
+        && "$skip_complete"=="true" ]]
+    then
+        echo -e "final aligned .bams for '${wellprefix[$row]}' already exist. skipping this well.'"
+    else
+    
+        echo -e "\n\napplying STAR to '${wellprefix[$row]}'...\n\n"
+        cd ${dir_well[$row]}
+        
+
+        # proceed if all input files exist
+        if [[ -s $bam_in_pe && -s $bam_in_se1 && -s $bam_in_se2 ]]
+        then
+
+            # clear intermediate files (if not all of them exist)
+            rm $bam_final_pe $bam_final_se1 $bam_final_se2 2>&1 >/dev/null
+
+        # run RNA filtering ------------------—------------------—-----------------
+        # in: three .bams from STAR mapping: $bam_in_* (paired-end, single-end read 1, read 2)
+        # out: - MAPQ and f ($bam_final_*)
+        #      - key log files (e.g., mapping rate) 
+        # ------------------—------------------—-----------------------------------
+        
+        # STAR will output singletons in .bam file
+        # (e.g., read 2 maps but read 1 doesn't; samtools view -f 8 $bam_in_pe)
+        # hence the "-f 0x0002" flag for "proper pairs" only, and SE alignments merged with...
+        # in later sections, "-f 0x0048" (the read is R1; it mapped but R2 mate didn't map) 
+        #                and "-f 0x0088" (the read is R2; it mapped but R1 mate didn't map)
+
+        # if both R1 & R2 of pair need to pass filtering criteria (AND instead of OR),
+        #     needs an added annotations --> wide step like the below
+        # sed '$!N;s/\n/ /' ${sam_q10_pe}_annotations \
+        #     | awk '{print ( ($3 == "RNA") && ($6 == "RNA") )}' \
+        #     | awk '{print $0}1' > ${sam_q10_pe}_annotations_bothpairs
+        # then awk filter off of this 'bothpairs' file
+        
+        # each step usually ~1-2 min
+
+        # (i) paired-end
+        samtools view -h -q 10 -f 0x0002 $bam_in_pe > $sam_q10_pe
+        perl $projdir/Scripts/A05c_classify_mCT_reads_STAR.pl $sam_q10_pe
+        awk 'NR == FNR { if ($0=="" || $3=="RNA") line[NR]; next } (FNR in line)' \
+                ${sam_q10_pe}_annotations ${sam_q10_pe} |
+                samtools view -b - | samtools sort - > $bam_final_pe
+        samtools index $bam_final_pe
+
+        # (ii) single-end, read 1
+        samtools view -h -q 10 $bam_in_se1 > $sam_q10_se1
+        perl $projdir/Scripts/A05c_classify_mCT_reads_STAR.pl $sam_q10_se1
+        awk 'NR == FNR { if ($0=="" || $3=="RNA") line[NR]; next } (FNR in line)' \
+                ${sam_q10_se1}_annotations ${sam_q10_se1} |
+                samtools view -b - | samtools sort - > $bam_final_se1
+        samtools index $bam_final_se1
+
+        # (iii) single-end, read 2
+        samtools view -h -q 10 $bam_in_se2 > $sam_q10_se2
+        perl $projdir/Scripts/A05c_classify_mCT_reads_STAR.pl $sam_q10_se2
+        awk 'NR == FNR { if ($0=="" || $3=="RNA") line[NR]; next } (FNR in line)' \
+                ${sam_q10_se2}_annotations ${sam_q10_se2} |
+                samtools view -b - | samtools sort - > $bam_final_se2
+        samtools index $bam_final_se2
+
+        # (iv.) optional clean-up (comment out as desired)
+        rm $sam_q10_pe $sam_q10_se1 $sam_q10_se2
+        # rm *annotations
+
+        fi
+    fi
+done
+
+
+
+echo "completed 'A05c_star_filtering.'"
+
+
+
+echo "Job $JOB_ID.$SGE_TASK_ID ended on:   " `hostname -s`
+echo "Job $JOB_ID.$SGE_TASK_ID ended on:   " `date `
+echo " "

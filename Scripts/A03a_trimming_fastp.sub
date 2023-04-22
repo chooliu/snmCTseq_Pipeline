@@ -1,0 +1,122 @@
+
+#!/bin/bash
+#$ -cwd
+#$ -o sublogs/A03a_trim.$JOB_ID.$TASK_ID
+#$ -j y
+#$ -l h_rt=3:00:00,h_data=8G
+#$ -N A03a_trim
+#$ -t 1-256
+
+
+
+echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `hostname -s`
+echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `date `
+echo " "
+
+
+
+
+# environment init ------------------—------------------—-----------------------
+
+. /u/local/Modules/default/init/modules.sh # <--
+module load anaconda3 # <--
+conda activate snmCTseq # <--
+
+export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
+
+overwrite_existing=false # <-- for help with incomplete jobs
+
+
+
+# extract target filepaths ------------------—------------------—---------------
+
+# helper functions
+query_metadat () {
+  awk -F',' -v targetcol="$1" \
+  'NR==1 {
+                for (i=1;i<=NF;i++) {
+                    if ($i==targetcol) {assayout=i; break} }
+                print $assayout
+              }
+      NR>1 {
+                print $assayout
+            }' $metadat_well
+}
+
+# extract target wells, print values for log
+
+batchnum=($(query_metadat "batchnum"))
+nwells=${#batchnum[@]}
+  
+target_well_rows=()
+for ((row=1; row<=nwells; row++))
+do
+    if [[ "${batchnum[$row]}" == "$SGE_TASK_ID" ]]
+    then
+        target_well_rows+=($row)
+    fi
+done
+
+# filepaths associated with target rows in well-level metadata
+
+wellprefix=($(query_metadat "wellprefix"))
+
+r1in=($(query_metadat "A02a_fqgz_demultip_R1"))
+r2in=($(query_metadat "A02a_fqgz_demultip_R2"))
+
+r1paired=($(query_metadat "A03a_fqgz_paired_R1"))
+r2paired=($(query_metadat "A03a_fqgz_paired_R2"))
+
+r1singletrim=($(query_metadat "A03a_fqgz_singletrim_R1"))
+r2singletrim=($(query_metadat "A03a_fqgz_singletrim_R2"))
+
+jsonout=($(query_metadat "A03a_json_fastp"))
+
+  
+  
+# run fastp for trimming ------------------—------------------—---------------
+
+echo "batch number: $SGE_TASK_ID"
+echo "processing the following rows in well metadata file ($metadat_well):"
+
+for row in ${target_well_rows[@]}
+do
+    echo -e "$row\t${wellprefix[$row]}"
+done
+
+
+# trim each well in batch (could be empty wells w/o demultip output,
+# but since by well doesn't cause catastrophic problems)
+for row in ${target_well_rows[@]}
+do
+
+    echo -e "\n\ntrimming '${wellprefix[$row]}'...\n\n"
+
+    # check for existing trimming output
+    # if well already processed, skip; if file doesn't exist, run fastp
+    if [[ -s ${r2singletrim[$row]} && -s ${jsonout[$row]} && "$overwrite_existing" != true ]]
+        then
+            echo -e "output files for '${wellprefix[$row]}' already exist and overwrite_existing=false. skipping.'"
+        else
+            fastp -i ${r1in[$row]} -I ${r2in[$row]} \
+            -o ${r1paired[$row]} -O ${r2paired[$row]} \
+            --unpaired1 ${r1singletrim[$row]} --unpaired2 ${r2singletrim[$row]} \
+            -h fastq_trimmed/${wellprefix[$row]}.html -j ${jsonout[$row]} -R ${wellprefix[$row]} \
+            --adapter_fasta=Scripts/A03a_adapter_sequences.fa \
+            -f 17 -t 10 -F 15 -T 10 -l 30 \
+            --cut_right -q 20 -u 50 -y -Y 15 -x
+    fi
+    
+done
+
+
+
+
+echo -e "\n\n'A03a_trim' completed.\n\n"
+
+
+
+
+echo "Job $JOB_ID.$SGE_TASK_ID ended on:   " `hostname -s`
+echo "Job $JOB_ID.$SGE_TASK_ID ended on:   " `date `
+echo " "
