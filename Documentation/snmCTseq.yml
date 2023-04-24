@@ -106,8 +106,6 @@ dependencies:
   - libiconv=1.17=h166bdaf_0
   - liblapack=3.9.0=16_linux64_openblas
   - libllvm11=11.1.0=he0ac6c6_5
-  - libmamba=0.27.0=h0dd8ff0_0
-  - libmambapy=0.27.0=py37h1ee4b26_0
   - libnghttp2=1.47.0=hdcd2b5c_1
   - libnsl=2.0.0=h7f98852_0
   - libopenblas=0.3.21=pthreads_h78a6416_3
@@ -130,7 +128,6 @@ dependencies:
   - lzo=2.10=h516909a_1000
   - lzstring=1.0.4=py_1001
   - make=4.3=hd18ef5c_1
-  - mamba=0.27.0=py37h6dacc13_0
   - markdown=3.4.1=pyhd8ed1ab_0
   - markupsafe=2.1.1=py37h540881e_1
   - matplotlib-base=3.5.3=py37hf395dca_2
@@ -138,6 +135,7 @@ dependencies:
   - msgpack-python=1.0.4=py37h7cecad7_0
   - multiqc=1.13=pyhdfd78af_0
   - munkres=1.1.4=pyh9f0ad1d_0
+  - mysql-connector-c=6.1.11=h6eb9d5d_1007
   - ncurses=6.3=h27087fc_1
   - networkx=2.5.1=pyhd8ed1ab_0
   - numba=0.56.3=py37hf081915_0
@@ -145,8 +143,9 @@ dependencies:
   - numpy=1.21.6=py37h976b520_0
   - openjdk=17.0.3=hafdced1_4
   - openjpeg=2.5.0=h7d73246_1
-  - openssl=1.1.1s=h0b41bf4_1
+  - openssl=1.1.1t=h0b41bf4_0
   - packaging=21.3=pyhd8ed1ab_0
+  - pandas=1.3.5=py37he8f5f7f_0
   - pango=1.50.11=h382ae3d_0
   - partd=1.3.0=pyhd8ed1ab_0
   - pcre2=10.37=hc3806b6_1
@@ -201,6 +200,7 @@ dependencies:
   - tqdm=4.64.1=pyhd8ed1ab_0
   - typing-extensions=4.4.0=hd8ed1ab_0
   - typing_extensions=4.4.0=pyha770c72_0
+  - ucsc-gtftogenepred=377=ha8a8165_5
   - unicodedata2=14.0.0=py37h540881e_1
   - urllib3=1.26.11=pyhd8ed1ab_0
   - wheel=0.37.1=pyhd8ed1ab_0
@@ -236,7 +236,6 @@ dependencies:
     - h5py==3.7.0
     - importlib-metadata==5.0.0
     - natsort==8.2.0
-    - pandas==1.3.5
     - pillow==9.3.0
     - pybedtools==0.9.0
     - pybigwig==0.3.18
