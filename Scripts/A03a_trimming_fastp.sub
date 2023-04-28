@@ -6,6 +6,7 @@
 #$ -l h_rt=3:00:00,h_data=8G
 #$ -N A03a_trim
 #$ -t 1-256
+#$ -hold_jid A02a_demultip
 
 
 

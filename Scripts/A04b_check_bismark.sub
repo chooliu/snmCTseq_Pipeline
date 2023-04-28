@@ -26,8 +26,6 @@ export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
 
 # extract target filepaths ------------------—------------------—---------------
 
-cd $projdir
-
 query_metadat () {
   awk -F',' -v targetcol="$1" \
       'NR==1 {
@@ -84,8 +82,6 @@ nbatches=${batchnum[-1]}
 
 
 # apply checks for A04a output ------------------—------------------—-----------
-
-cd $projdir
 
 echo "-----------------------------------------------------------------"
 echo "A. printing number of .allc files missing (by batch)... "

@@ -20,8 +20,6 @@ echo " "
 # environment init ------------------—------------------—-----------------------
 
 . /u/local/Modules/default/init/modules.sh # <--
-module load anaconda3 # <--
-conda activate snmCTseq # <--
 
 export $(cat snmCT_parameters.env | grep -v '^#' | xargs)  # <--
 
@@ -50,8 +48,8 @@ echo "target plate prefix:" $target_plate
 
 # merge R1, then R2 files across lanes ------------------—------------------—---
 
-filesin_r1=($(ls $dir_fastq/*$target_plate*R1*fastq.gz))
-filesin_r2=($(ls $dir_fastq/*$target_plate*R2*fastq.gz))
+filesin_r1=($(ls $dir_originalfastq/*$target_plate*R1*fastq.gz))
+filesin_r2=($(ls $dir_originalfastq/*$target_plate*R2*fastq.gz))
 
 echo -e "\n\nmerging Read 1 files:"
 for file in ${filesin_r1[@]}

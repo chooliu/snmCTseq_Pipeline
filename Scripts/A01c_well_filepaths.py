@@ -7,17 +7,17 @@
 # recommend running interactively in python/Jupyter to check outputs,
 # but shouldn't require any changes to defaults
 
-# if running interactively, check snmCT_parameters.env loaded or manually spec os.environ e.g.,
-# os.environ['metadat_plate'] = "Metadata/A01b_plate_metadata.csv"
-# os.environ['metadat_well'] = "Metadata/A01c_well_filepath.csv"
-
-
 # load packages ----------------------------------------------------------------
 
 import itertools
 import pandas as pd
 import numpy as np
 import os
+
+# if running interactively, check snmCT_parameters.env loaded or manually spec os.environ e.g.,
+# os.environ['projdir'] ="/u/project/cluo/chliu/Analyses/IGVF"; os.chdir(os.environ['projdir'])
+# os.environ['metadat_plate'] = "Metadata/A01b_plate_metadata.csv"
+# os.environ['metadat_well'] = "Metadata/A01c_well_filepath.csv"
 
 
 
@@ -49,27 +49,31 @@ filepath_df = pd.merge(filepath_df, plates_df, how = "left", on = "plate")
 #   environments that favor many small jobs versus a few long jobs,
 # - or two sets of batches e.g., filepath_df['batchnum_A04a_bismark']
 #   pulled by the sub scripts for the A04a script only
+
 nwellstot = filepath_df.shape[0]
 wells_per_batch = 24
 filepath_df['batchnum'] =\
     pd.Series(range(0, np.ceil(nwellstot / wells_per_batch).astype(int))
              ).repeat(wells_per_batch)[0:nwellstot].reset_index(drop = True) + 1
 
-
-print(filepath_df.shape)
+print( "number of total wells:" )
+print( nwellstot )
 
 filepath_df.index = filepath_df.index.astype(int) + 1
 
 def basename(pathin):
-  return(pathin.split("/")[-1])
+    return(pathin.split("/")[-1])
+
+print( "number of plates:" )
+print( "Nplates: " + str( filepath_df['platenum'].max() ) )
 
 print( "number of batches:" )
-print( pd.value_counts(filepath_df['batchnum']).value_counts() )
+print( "Nbatches: " + str( filepath_df['batchnum'].max() ) )
 
 
 
 # then extensive file paths for sections A02-A06 -------------------------------
-
+# (inelegant, but useful for file checking/compiling info)
 
 # A02: demultiplexing 
 # all in dir: fastq_demultip/

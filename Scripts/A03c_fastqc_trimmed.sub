@@ -6,7 +6,7 @@
 #$ -N A03c_fastqc_trimmed
 #$ -l h_rt=8:00:00,h_data=8G
 #$ -pe shared 4
-#$ -hold_jid A03a_trim
+#$ -hold_jid A03a_trim,A02c_fastqc_demultip
 
 
 

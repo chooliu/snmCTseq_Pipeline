@@ -26,6 +26,7 @@ import os
 # load reference info -------------------------------------------------------------
 
 os.chdir(os.environ['ref_dir'])
+os.makedirs("annotations/", exist_ok=True)
 
 gtf_file = pd.read_csv(os.environ['ref_gtf'],
                        comment = "#", delimiter="\t", header = None)
