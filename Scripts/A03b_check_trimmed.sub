@@ -4,7 +4,7 @@
 #$ -o sublogs/A03b_check_trimmed.$JOB_ID
 #$ -j y
 #$ -l h_rt=1:00:00,h_data=4G
-#$ -N A03a_trim
+#$ -N A03b_check_trimmed
 #$ -hold_jid A03a_trim
 
 

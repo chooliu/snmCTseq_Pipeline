@@ -4,7 +4,20 @@ Key updates from past iterations (& some superfluous details as notes for myself
 
 # Public Release, v1
 
-**v1.1**
+**v1.1.1**
+
+A few critical bugs related to variable names from new v1.1.0 `snmCT_parameters.env` file structure:
+- in A01, `$dir_originalfastq` didn't match .env param name
+- annotations in ref file should be .bed instead of .tsv (e.g., should be `annotations/genebody.bed` not `genebody.tsv`)
+- forgot to add the FastQC randomly selected wells (`$wells_to_run`) of A02c, A03c in `.env` file. 
+
+Minor fixes: 
+- explicitly add `$ref_dir/annotations/` for A00* outputs.
+- minor qsub jobs name/dependency fixes
+- minor formatting updates, added more comments in Notebooks & D
+- unfortunately, notebook metadata cleaning not working (e.g., cellid, ipykernel names updated -- ignore these in the commit)
+
+**v1.1.0**
 - Added this documentation, public Github in prep for production-scale consortium work.
 - Parameters now kept in one environmental variable file (`snmCT_parameters.env`) in lieu of specifying parameters like `$projdir` that were repeated at the start of almost every script. This requires an `xargs --> export` command & `import os` to read environmental variables for certain python scripts.
 - Converting some previously interactively run scripts to also be `qsub` submissions for consistency.

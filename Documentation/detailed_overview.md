@@ -208,7 +208,7 @@ qsub Scripts/A04f_coverage_DNA.sub # †
 
 * **A04b:** Checks A04a output. Makes `.tsv` lists of valid `.allc.gz` files for next step.
 * **A04c:** Summarizes the cytosine-level information from `.allc` listed in the A04b `.tsv` files into methylation and coverage counts across predefined regions (e.g., 100kb bins, genebody). Stored as a "mcds" and accessed via `from ALLCools.mcds import MCDS; MCDS.open()` (step can be skipped if not using `allcools`)
-* **A04d:** Global CG- and CH-methylation fractions are summarized by summing all methylation reads / all coverage. In addition, mCCC/CCC (and partially methylated Lambda "chrL", if spiked-in) are tabulated to estimate bisulfite non-conversion levels.
+* **A04d:** Global CG- and CH-methylation fractions are summarized by summing all methylation reads / all coverage. In addition, mCCC/CCC (and partially methylated Lambda "chrL", if spiked-in and added to reference genome in step `A00*`) are tabulated to estimate bisulfite non-conversion levels.
 * **A04e:** Run `samtools stats`, primarily as a way to quickly count the final number of counts post-filtering.
 * **A04f:** Use `samtools mpileup` to estimate coverage, including chrX versus chrY coverage ratio for sex prediction.
 
@@ -247,7 +247,7 @@ qsub Scripts/A05e_star_bam_stats.sub # †
 * **A05a:** Mapping with `STAR`, again in "two-stage" mode (paired-end mapping followed by single-end mapping of trimming and mapping singletons).
 * **A05b:** Check A05a output.
 * **A05c:** _In silico_ RNA filtering for mCH/CH > 0.90 via `MD:Z` flag, assuming that bisulfite converted methylated CH-cytosines will effectively look like C to T sequencing errors in CIGAR strings.
-* **A05d:** Exon- and gene-level quantification via `featureCounts`. 
+* **A05d:** Exon- and gene-level quantification via `featureCounts`. One count table for each of the three alignment schemes (paired-end, single-end R1, and single-end R2) that can be joined before analysis.
 * **A05e:** `samtools stats` and `picard CollectRnaSeqMetrics`.
 
 
@@ -289,10 +289,11 @@ With the caveat that nucleus exclusion criteria can be very context- and study-s
 * mCH/CH < 0.10 \*
 * mCCC/CCC < 0.01 or spike-in mLambda < 0.01 (i.e., bisulfite conversion ⪆ 99%) \*
 * \* some cell-types like neurons are known to harbor relataively high non-CG methylation; e.g., in tissue containing neurons, we use instead mCH/CH < 0.20 and mCCC/CCC < 0.03
+* extremely high DNA coverage (>10%?)
 
-### Transcriptome:
+### Transcriptome
 
-While DNA levels and quality tends to be stable from cell-to-cell, I've found that RNA recommendations are more difficult to define *a priori*: they may be more sensitive to cell-type (e.g., global transcription levels, number genes detected) and technical effects (e.g., less RNA template than DNA in cell &rarr; lower RNA counts &rarr; potentially more sensitive to ambient contamination or noise.
+While DNA levels and quality tends to be stable from cell-to-cell, I've found that RNA recommendations are more difficult to define *a priori*: they may be more sensitive to cell-type (e.g., global transcription levels, number genes detected) and technical effects (e.g., less RNA template than DNA in cell &rarr; lower RNA counts &rarr; potentially more sensitive to ambient contamination or noise).
 
 At present, I thus look for outliers with respect to the following, versus imposing hard cut-offs:
 

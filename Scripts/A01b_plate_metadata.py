@@ -1,17 +1,12 @@
 
 # ==============================================================================
-# Scripts/A01c_well_filepaths.py
+# Scripts/A01b_plate_metadata.py
 # should parse list of lane-merged plates -->
 # extract plate-level metadata saved to $dir_proj/Metadata
 # ==============================================================================
 
 # recommend running interactively in python/Jupyter to check outputs,
 # the relevant metadata parameters very likely to change between studies
-
-# if running interactively, check snmCT_parameters.env loaded or manually spec os.environ e.g.,
-# os.environ['ref_dir'] = "/u/project/cluo/chliu/Genomes/human_gencode_v40"
-
-
 
 
 # load packages ----------------------------------------------------------------
@@ -20,6 +15,12 @@ import glob
 import sys
 import pandas as pd
 import os
+
+# if running interactively, check snmCT_parameters.env loaded or manually spec os.environ e.g.,
+# os.environ['projdir'] ="/u/project/cluo/chliu/Analyses/IGVF"; os.chdir(os.environ['projdir'])
+# os.environ['ref_dir'] = "/u/project/cluo/chliu/Genomes/human_gencode_v40"
+# os.environ['dir_originalfastq'] = "/u/project/cluo/Shared_Datasets/IGVF/202208_Pilot/snmCT-seq/fastq/"
+# os.environ['metadat_plate'] = "Metadata/A01b_plate_metadata.csv"
 
 
 
