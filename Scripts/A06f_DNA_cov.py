@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 
 import os
-filepath_wellmetadat = os.environ['metadat_plate']
+filepath_wellmetadat = os.environ['metadat_well']
 metadata_well = pd.read_csv(filepath_wellmetadat)
 
 target_chroms = ["chr" + str(i) for i in range(1, 22)]

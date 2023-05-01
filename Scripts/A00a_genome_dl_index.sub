@@ -53,11 +53,11 @@ gunzip -c gencode.v40.primary_assembly.annotation.gtf.gz > gencode.v40.primary_a
 # index, chrom sizes -----------------—------------------—----------------------
 
 # extract bp length/chromosome
-samtools faidx GRCh38.primary_assembly.genome.fa
-cut -f 1-2 GRCh38.primary_assembly.genome.fa.fai > chromsizes.tsv
+samtools faidx $ref_fasta
+cut -f 1-2 ${ref_fasta}.fai > chromsizes.tsv
 
 # .fa --> .dict 
-picard CreateSequenceDictionary -R GRCh38.primary_assembly.genome.fa
+picard CreateSequenceDictionary -R ${ref_fasta/fa/dict}
 
 
 

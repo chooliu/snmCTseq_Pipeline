@@ -103,7 +103,7 @@ else
     if [[ $action_metadata_exists == "overwrite" ]]
         then
         echo "overwriting the existing file. (action_metadata_exists=='overwrite')."
-        cat "$header" > $metadat_out
+        printf "$header" > $metadat_out
     elif [[ $action_metadata_exists == "append" ]]
         then
             echo "appending to the existing file. (action_metadata_exists=='append')"
@@ -111,7 +111,7 @@ else
         then
             metadat_out=Metadata/A04d_mCfrac_${SGE_TASK_ID}_B.tsv
             echo "renaming output file to $metadat_out to avoid overwriting (action_metadata_exists=='rename')."
-            cat "$header" > $metadat_out
+            printf "$header" > $metadat_out
     else
         echo "exiting. (check 'action_metadata_exists' variable if to change action.)"
         exit 1
@@ -135,7 +135,7 @@ do
     if [[ ! -s mapping_bismark/${wellprefix[$row]}/$allc_final \
         && ! -s mapping_bismark/${wellprefix[$row]}/$allctbi_final ]]
     then
-        echo -e "error: final .allc files for '${wellprefix[$row]}' missing. skipping this well.'"
+        echo -e "WARNING: final .allc files for '${wellprefix[$row]}' missing. skipping this well.'"
     else
     
     echo "processing '${wellprefix[$row]}'..."
@@ -167,7 +167,7 @@ do
     mch=$( calc_mC_frac "^C[ACT][ACTG]" )
 
     # record metrics, remove tmp file
-    echo -e "${wellprefix[$row]}\t${mlambda}\t${mccc}\t${mcg}\t${mch}\n" >> $metadat_out
+    echo -e "${wellprefix[$row]}\t${mlambda}\t${mccc}\t${mcg}\t${mch}" >> $metadat_out
     rm $tmpfile
 
 fi

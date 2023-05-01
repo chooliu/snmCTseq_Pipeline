@@ -4,6 +4,12 @@ Key updates from past iterations (& some superfluous details as notes for myself
 
 # Public Release, v1
 
+**v1.1.2**
+
+- Change paths in `A00*` scripts to be relative to `.env` parameters (versus hardcoded `.fasta` names).
+- Minor fix to `A04d`: blank lines causing indexing problems when compiling global methylation levels into `Metadata/A04d_mCfrac_*.tsv` (`wellprefix` row-indices missing and looked duplicated to pandas during metadata compile steps). Also header not being written properly when run in "overwrite" mode, which could cause some entries to be read as headers (apparent missing rows/failed vertical join in compile steps).
+- Major issue in metadata compile scripts A06*, A07*, should reference `metadata_well` for filepaths not `metadata_plate` (e.g., couldn't load expected mapping rate files).
+
 **v1.1.1**
 
 A few critical bugs related to variable names from new v1.1.0 `snmCT_parameters.env` file structure:

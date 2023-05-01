@@ -1,7 +1,7 @@
 
 #!/bin/bash
 #$ -cwd
-#$ -o sublogs/A04b_bismark.$JOB_ID.$TASK_ID
+#$ -o sublogs/A04a_bismark.$JOB_ID.$TASK_ID
 #$ -j y
 #$ -l h_rt=48:00:00,h_data=16G,highp
 #$ -pe shared 4

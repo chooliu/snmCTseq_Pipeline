@@ -8,7 +8,7 @@ import pandas as pd
 import glob
 
 import os
-filepath_wellmetadat = os.environ['metadat_plate']
+filepath_wellmetadat = os.environ['metadat_well']
 metadata_well = pd.read_csv(filepath_wellmetadat)
 
 def parse_fastp_report(filepath):

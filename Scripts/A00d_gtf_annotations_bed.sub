@@ -37,7 +37,7 @@ cd $ref_dir
 
 # rRNA interval list
 picard BedToIntervalList -I annotations/rRNA.bed -O \
-    annotations/rRNA.intervallist -SD GRCh38.primary_assembly.genome.dict
+    annotations/rRNA.intervallist -SD ${ref_fasta/fa/dict}
 
 # ref flat
 gtfToGenePred -genePredExt -geneNameAsName2 $ref_gtf refFlat.tmp.txt
@@ -45,7 +45,7 @@ cut -f 1-10 refFlat.tmp.txt > refFlat.tmp1
 cut -f 12 refFlat.tmp.txt > refFlat.tmp2
 
 paste refFlat.tmp1 refFlat.tmp2 > annotations/refFlat.txt
-gzip annotations/$refFlat.txt
+gzip annotations/refFlat.txt
 
 rm refFlat.tmp*
 

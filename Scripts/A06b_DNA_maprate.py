@@ -9,7 +9,7 @@ import re
 import pandas as pd
 
 import os
-filepath_wellmetadat = os.environ['metadat_plate']
+filepath_wellmetadat = os.environ['metadat_well']
 metadata_well = pd.read_csv(filepath_wellmetadat)
 
     
