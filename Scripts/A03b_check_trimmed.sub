@@ -3,7 +3,7 @@
 #$ -cwd
 #$ -o sublogs/A03b_check_trimmed.$JOB_ID
 #$ -j y
-#$ -l h_rt=1:00:00,h_data=4G
+#$ -l h_rt=1:00:00,h_data=8G
 #$ -N A03b_check_trimmed
 #$ -hold_jid A03a_trim
 
@@ -16,7 +16,8 @@ echo " "
 
 
 
-# environment init ------------------—------------------—-----------------------
+
+# environment init -------------------------------------------------------------
 
 . /u/local/Modules/default/init/modules.sh # <--
 module load anaconda3 # <--
@@ -28,7 +29,7 @@ overwrite_existing=false # <-- for help with incomplete jobs
 
 
 
-# extract target filepaths ------------------—------------------—---------------
+# extract target filepaths -----------------------------------------------------
 
 query_metadat () {
   awk -F',' -v targetcol="$1" \
@@ -39,18 +40,55 @@ query_metadat () {
               } 
       NR>1 {
                 print $assayout
-            }' $metadat_well
+            }' ${metadat_well}
 }
 
 check_filepaths_in_assay() {
     for file in $@
     do 
-        if [[ ! -s $file ]]
+        if [[ ! -s ${file} ]]
         then
-            echo "missing '$file'"
+            echo "missing '${file}'"
         fi
     done
 }
+
+check_filepath_by_batch() {
+target_array=($@)
+batches_to_rerun=()
+for ((target_batch=1; target_batch<=nbatches; target_batch++))
+    do
+        target_well_rows=()
+        for ((row=1; row<=nwells; row++))
+        do
+            if [[ "${batchnum[$row]}" == "${target_batch}" ]]
+            then
+                target_well_rows+=($row)
+            fi
+        done
+    
+        batch_file_list=${target_array[@]: ${target_well_rows[0]}:${#target_well_rows[@]} }
+    
+        num_files_missing=$(check_filepaths_in_assay ${batch_file_list[@]} | wc -l)
+
+        if [[ ${num_files_missing} > 0 ]]
+        then
+            batches_to_rerun+=(${target_batch})
+            echo -e "${target_batch} \t ${num_files_missing}"
+        fi
+    done 
+    
+    if [[ ${#batches_to_rerun[@]} > 0 ]]
+    then
+        echo "batches to re-run:"
+        echo "${batches_to_rerun[*]}"        
+    fi
+}
+
+batchnum=($(query_metadat "batchnum"))
+
+nwells=${#batchnum[@]}
+nbatches=${batchnum[-1]}
 
 r1paired=($(query_metadat "A03a_fqgz_paired_R1"))
 r2paired=($(query_metadat "A03a_fqgz_paired_R2"))
@@ -63,8 +101,6 @@ jsonout=($(query_metadat "A03a_json_fastp"))
 
 
 # apply checks for A03a output -------------------------------------------------
-# (may be later depreciated due to explicit target filename change)
-
 
 echo "-----------------------------------------------------------------"
 echo "A. counting number of .fastq.gz files generated during trimming step... "
@@ -73,82 +109,101 @@ echo "-----------------------------------------------------------------"
 
 nfastq_tot_trimmed=0
 
+num_platesin=$(cut -f 2 -d ',' ${metadat_plate} | tail -n +2 | wc -l)
+nfastq_expected=$((${num_platesin}*384*4))
+platenames=($(cut -f 2 -d ',' ${metadat_plate} | tail -n +2))
+
 echo -e "\npaired_R1.fastq.gz files\n"
-for prefix in $(cut -f 2 -d ',' $metadat_plate | tail -n +2);
+for ((i=0; i<${num_platesin}; i++)); 
     do
         nfastq_plate=$(
-            find "fastq_trimmed/" -maxdepth 1 -mindepth 1 -name ${prefix}*paired_R1.fastq.gz | wc -l)
-        echo "$prefix : $nfastq_plate"
-        let "nfastq_tot_trimmed+=$nfastq_plate"
+            find "fastq_trimmed/" -maxdepth 1 -mindepth 1 -name ${platenames[$i]}*paired_R1.fastq.gz | wc -l)
+        echo -e "$(($i + 1)) \t ${platenames[$i]} \t ${nfastq_plate}"
+        let "nfastq_tot_trimmed+=${nfastq_plate}"
 done
 
 echo -e "\npaired_R2.fastq.gz files\n"
-for prefix in $(cut -f 2 -d ',' $metadat_plate | tail -n +2);
+for ((i=0; i<${num_platesin}; i++)); 
     do
         nfastq_plate=$(
-            find "fastq_trimmed/" -maxdepth 1 -mindepth 1 -name ${prefix}*paired_R2.fastq.gz | wc -l)
-        echo "$prefix : $nfastq_plate"
-        let "nfastq_tot_trimmed+=$nfastq_plate"
+            find "fastq_trimmed/" -maxdepth 1 -mindepth 1 -name ${platenames[$i]}*paired_R2.fastq.gz | wc -l)
+        echo -e "$(($i + 1)) \t ${platenames[$i]} \t ${nfastq_plate}"
+        let "nfastq_tot_trimmed+=${nfastq_plate}"
 done
 
 echo -e "\nsingletrim_R1.fastq.gz files\n"
-for prefix in $(cut -f 2 -d ',' $metadat_plate | tail -n +2);
+for ((i=0; i<${num_platesin}; i++)); 
     do
         nfastq_plate=$(
-            find "fastq_trimmed/" -maxdepth 1 -mindepth 1 -name ${prefix}*singletrim_R1.fastq.gz | wc -l)
-        echo "$prefix : $nfastq_plate"
-        let "nfastq_tot_trimmed+=$nfastq_plate"
+            find "fastq_trimmed/" -maxdepth 1 -mindepth 1 -name ${platenames[$i]}*singletrim_R1.fastq.gz | wc -l)
+        echo -e "$(($i + 1)) \t ${platenames[$i]} \t ${nfastq_plate}"
+        let "nfastq_tot_trimmed+=${nfastq_plate}"
 done
 
 echo -e "\nsingletrim_R2.fastq.gz files\n"
-for prefix in $(cut -f 2 -d ',' $metadat_plate | tail -n +2);
+for ((i=0; i<${num_platesin}; i++)); 
     do
         nfastq_plate=$(
-            find "fastq_trimmed/" -maxdepth 1 -mindepth 1 -name ${prefix}*singletrim_R2.fastq.gz | wc -l)
-        echo "$prefix : $nfastq_plate"
-        let "nfastq_tot_trimmed+=$nfastq_plate"
+            find "fastq_trimmed/" -maxdepth 1 -mindepth 1 -name ${platenames[$i]}*singletrim_R2.fastq.gz | wc -l)
+        echo -e "$(($i + 1)) \t ${platenames[$i]} \t ${nfastq_plate}"
+        let "nfastq_tot_trimmed+=${nfastq_plate}"
 done
 
-num_platesin=$(cut -f 2 -d ',' $metadat_plate | tail -n +2 | wc -l)
-nfastq_expected=$(($num_platesin*384*4))
 nfastq_demult_folder=$(find "fastq_demultip/" -maxdepth 1 -mindepth 1 -name '*.fastq.gz' | wc -l)
 nfastq_trimmed_folder=$(find "fastq_trimmed/" -maxdepth 1 -mindepth 1 -name '*.fastq.gz' | wc -l)
-fastq_missing=$(($nfastq_expected - $nfastq_tot_trimmed))
+fastq_missing=$((${nfastq_expected} - ${nfastq_tot_trimmed}))
 
 echo -e "\n\nchecks based on plate metadata:"
-echo "* num trimmed .fastqs expected based on # plates: ($num_platesin plates)*384*4 = $nfastq_expected (R1p, R2p, R1o, R2o)"
+echo "* num trimmed .fastqs expected based on # plates: (${num_platesin} plates)*384*4 = ${nfastq_expected} (R1p, R2p, R1o, R2o)"
 echo "* num trimmed .fastq detected, summed from per-plate values above: ${nfastq_tot_trimmed}"
 echo "* num .fastqs missing: ${fastq_missing} ($((${fastq_missing}/4)) wells have no trimmed output?)"
 
 echo -e "\nother checks:"
 echo "* num .fastqs in fastq_trimmed: ${nfastq_trimmed_folder} (regardless of expected plate prefix; should be same as above)"
-echo "* num demultiplexed .fastqs detected: $nfastq_demult_folder (R1 & R2, count*2 = $((${nfastq_demult_folder}*2)) should equal trimmed .fastq.gz counts)"
+echo "* num demultiplexed .fastqs detected: ${nfastq_demult_folder} (R1 & R2, count*2 = $((${nfastq_demult_folder}*2)) should equal trimmed .fastq.gz counts)"
 
 
 
-echo -e "\n\n-----------------------------------------------------------------"
-echo "B. checking each expected file (from $metadat_well)"
-echo -e "-----------------------------------------------------------------\n"
+echo "-----------------------------------------------------------------"
+echo "B. checking each expected file (from ${metadat_well}, by batch...)"
+echo "-----------------------------------------------------------------"
+
+r1paired=($(query_metadat "A03a_fqgz_paired_R1"))
+r2paired=($(query_metadat "A03a_fqgz_paired_R2"))
+r1singletrim=($(query_metadat "A03a_fqgz_singletrim_R1"))
+r2singletrim=($(query_metadat "A03a_fqgz_singletrim_R2"))
+jsonout=($(query_metadat "A03a_json_fastp"))
 
 echo -e "\nchecking Read 1 properly paired .fastq.gz files:\n"
-check_filepaths_in_assay ${r1paired[@]}
+echo -e "batchnum\tnum_missing"
+check_filepath_by_batch ${r1paired[@]}
 
 echo -e "\nchecking Read 2 properly paired .fastq.gz files:\n"
-check_filepaths_in_assay ${r2paired[@]}
+echo -e "batchnum\tnum_missing"
+check_filepath_by_batch ${r2paired[@]}
 
-echo -e "\nchecking Read 1 singletrimed .fastq.gz files:\n"
-check_filepaths_in_assay ${r1singletrim[@]}
+echo -e "\nchecking Read 1 trimming singleton .fastq.gz files:\n"
+echo -e "batchnum\tnum_missing"
+check_filepath_by_batch ${r1singletrim[@]}
 
-echo -e "\nchecking Read 2 singletrim .fastq.gz files:\n"
-check_filepaths_in_assay ${r2singletrim[@]}
+echo -e "\nchecking Read 2 trimming singleton .fastq.gz files:\n"
+echo -e "batchnum\tnum_missing"
+check_filepath_by_batch ${r2singletrim[@]}
 
 echo -e "\nchecking .json summary file out:\n"
-check_filepaths_in_assay ${jsonout[@]}
+echo -e "batchnum\tnum_missing"
+check_filepath_by_batch ${jsonout[@]}
+
+echo -e "\n\nsuggest re-running and checking sublog output of above batches."
+
 
 echo -e "\n* checks the A03a output columns of 'metadat_well' if the file exists and is non-empty."
 echo "* if none missing, will only output target column names above."
 echo "* if some declared 'missing' but all other checks OK, may just be no/few reads surviving trimming."
 echo "  (check 'fastq_demultip/' and associated fastp logs e.g., fastq_trimmed/wellprefix.html report)"
+
+
+
 
 
 
@@ -160,6 +215,7 @@ echo "checking if 'completed' in sublogs/A03a_trim* output."
 echo "if any filename is printed, the associated batch may have not completed trimming."
 
 grep -c 'A03a_trim completed' sublogs/A03a_trim* | awk -F ":" '$2==0 {print $1}'
+
 
 
 

@@ -35,43 +35,50 @@ query_metadat () {
               } 
       NR>1 {
                 print $assayout
-            }' $metadat_well
+            }' ${metadat_well}
 }
+
 
 check_filepaths_in_assay() {
     for file in $@
         do 
-        if [[ ! -s $file ]]
+        if [[ ! -s ${file} ]]
             then
-                echo "missing '$file'"
+                echo "missing '${file}'"
             fi
         done
 }
 
-check_filepath_in_batch() {
-target_array=$@
-for ((target_batch=1; target_batch<=$nbatches; target_batch++))
+check_filepath_by_batch() {
+target_array=($@)
+batches_to_rerun=()
+for ((target_batch=1; target_batch<=nbatches; target_batch++))
     do
         target_well_rows=()
         for ((row=1; row<=nwells; row++))
         do
-            if [[ "${batchnum[$row]}" == "$target_batch" ]]
+            if [[ "${batchnum[$row]}" == "${target_batch}" ]]
             then
                 target_well_rows+=($row)
             fi
         done
-        
-        batch_allc_list=()
-        for row in ${target_well_rows[@]}
-        do
-            batch_allc_list+=(${allctbi[$row]})
-        done
-        
-        num_allc_missing=$(check_filepaths_in_assay ${batch_allc_list[@]} | wc -l)
-        echo -e "${target_batch} \t $num_allc_missing"
+    
+        batch_file_list=${target_array[@]: ${target_well_rows[0]}:${#target_well_rows[@]} }
+    
+        num_files_missing=$(check_filepaths_in_assay ${batch_file_list[@]} | wc -l)
 
-    done \
-    | awk -F "\t" '($2 > 0) { print $0 }'
+        if [[ ${num_files_missing} > 0 ]]
+        then
+            batches_to_rerun+=(${target_batch})
+            echo -e "${target_batch} \t ${num_files_missing}"
+        fi
+    done 
+    
+    if [[ ${#batches_to_rerun[@]} > 0 ]]
+    then
+        echo "batches to re-run:"
+        echo "${batches_to_rerun[*]}"        
+    fi
 }
 
 batchnum=($(query_metadat "batchnum"))
@@ -93,22 +100,22 @@ allctxt=($(query_metadat "A04a_txt_allccheck"))
 
 echo "checking allc.tsv.gz"
 echo -e "batchnum\tnum_missing"
-check_filepath_in_batch ${allcgz[@]}
+check_filepath_by_batch ${allcgz[@]}
 
 echo "checking allc.tsv.gz.tbi"
 echo -e "batchnum\tnum_missing"
-check_filepath_in_batch ${allctbi[@]}
+check_filepath_by_batch ${allctbi[@]}
 
 echo "checking allc_check.txt"
 echo -e "batchnum\tnum_missing"
-check_filepath_in_batch ${allctxt[@]}
+check_filepath_by_batch ${allctxt[@]}
 
 echo -e "\n\nsuggest re-running and checking sublog output of above batches."
 
 
 
 echo -e "\n\n-----------------------------------------------------------------"
-echo "B. checking each expected file (from $metadat_well)"
+echo "B. checking each expected file (from ${metadat_well})"
 echo -e "-----------------------------------------------------------------\n"
 
 echo -e "\nchecking .allc.gz files:\n"
@@ -136,41 +143,41 @@ echo "-----------------------------------------------------------------"
 
 echo -e "\nnumber of .allc.gz files found:\n"
 prefix_num=0
-for prefix in $(cut -f 2 -d ',' $metadat_plate | tail -n +2);
+for prefix in $(cut -f 2 -d ',' ${metadat_plate} | tail -n +2);
     do
         let "prefix_num+=1"
         find mapping_bismark/ -maxdepth 2 -mindepth 2  -wholename "*${prefix}*/allc.tsv.gz" \
             | awk -F '\\/' '{print $2 "\t" $0}' > Scripts/A04b_allclists_${prefix_num}.tsv
         nallc_plate=$(wc -l Scripts/A04b_allclists_${prefix_num}.tsv | awk -F " " '{print $1}')
-        echo "$prefix : $nallc_plate"
-        let "ntot_allc+=$nallc_plate"
+        echo "${prefix} : ${nallc_plate}"
+        let "ntot_allc+=${nallc_plate}"
 done
 
 echo -e "\nnumber of .allc.gz.tbi files found:\n"
-for prefix in $(cut -f 2 -d ',' $metadat_plate | tail -n +2);
+for prefix in $(cut -f 2 -d ',' ${metadat_plate} | tail -n +2);
     do
         nallctbi_plate=$(
             find mapping_bismark/ -maxdepth 2 -mindepth 2  -wholename "*${prefix}*/allc_check.txt" | wc -l)
-        echo "$prefix : $nallctbi_plate"
-        let "ntot_allctbi+=$nallctbi_plate"
+        echo "${prefix} : ${nallctbi_plate}"
+        let "ntot_allctbi+=${nallctbi_plate}"
 done
 
 echo -e "\nnumber of allc_check.txt files found:\n"
-for prefix in $(cut -f 2 -d ',' $metadat_plate | tail -n +2);
+for prefix in $(cut -f 2 -d ',' ${metadat_plate} | tail -n +2);
     do
         nallcchecktxt_plate=$(
             find mapping_bismark/ -maxdepth 2 -mindepth 2  -wholename "*${prefix}*/allc.tsv.gz.tbi" | wc -l)
-        echo "$prefix : $nallcchecktxt_plate"
-        let "ntot_allctxt+=$nallcchecktxt_plate"
+        echo "${prefix} : ${nallcchecktxt_plate}"
+        let "ntot_allctxt+=${nallcchecktxt_plate}"
 done
 
 echo -e "\ncompare to the number of trimmed R1 .fastq.gz files found...:\n"
-for prefix in $(cut -f 2 -d ',' $metadat_plate | tail -n +2);
+for prefix in $(cut -f 2 -d ',' ${metadat_plate} | tail -n +2);
     do
         ntrimmed_plate=$(
             find fastq_trimmed/ -maxdepth 1 -mindepth 1  -wholename "*${prefix}*paired_R1.fastq.gz" | wc -l)
-        echo "$prefix : $ntrimmed_plate"
-        let "ntot_allctxt+=$ntrimmed_plate"
+        echo "${prefix} : ${ntrimmed_plate}"
+        let "ntot_allctxt+=${ntrimmed_plate}"
 done
 
 
@@ -185,11 +192,11 @@ echo -e "-----------------------------------------------------------------\n"
 
 for txtfile in ${allctxt[@]}
     do
-        if [[ -s $txtfile ]]
+        if [[ -s ${txtfile} ]]
         then
-            if $(grep -q 'WARNING' $txtfile && grep -vq 'file sizes' $txtfile)
+            if $(grep -q 'WARNING' ${txtfile} && grep -vq 'file sizes' ${txtfile})
             then 
-                echo "warning in '$txtfile' ?"
+                echo "warning in '${txtfile}' ?"
             fi
         fi
     done

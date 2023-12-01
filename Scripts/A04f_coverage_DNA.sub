@@ -42,7 +42,7 @@ query_metadat () {
               }
       NR>1 {
                 print $assayout
-            }' $metadat_well
+            }' ${metadat_well}
 }
 
 # extract target wells, print values for log
@@ -53,7 +53,7 @@ nwells=${#batchnum[@]}
 target_well_rows=()
 for ((row=1; row<=nwells; row++))
 do
-    if [[ "${batchnum[$row]}" == "$SGE_TASK_ID" ]]
+    if [[ "${batchnum[$row]}" == "${SGE_TASK_ID}" ]]
     then
         target_well_rows+=($row)
     fi
@@ -73,7 +73,7 @@ dir_well=($(query_metadat "A04a_dir_bismark"))
 for row in ${target_well_rows[@]} 
 do
 
-    cd $projdir
+    cd ${dir_proj}
     
     if [[ -s ${dir_well[$row]}/total_cov_by_chr \
         && -s ${dir_well[$row]}/nbases_cov_by_chr \

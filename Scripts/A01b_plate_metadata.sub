@@ -4,13 +4,15 @@
 #$ -o sublogs/A01b_plate_metadata.$JOB_ID
 #$ -j y
 #$ -N A01b_plate_metadata
-#$ -l h_rt=0:10:00,h_data=4G
+#$ -l h_rt=0:15:00,h_data=8G
 #$ -hold_jid A01a_merge_lanes
 
 
 echo "Job $JOB_ID started on:   " `hostname -s`
 echo "Job $JOB_ID started on:   " `date `
 echo " "
+
+
 
 
 
@@ -32,6 +34,8 @@ export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
 
 python Scripts/A01b_plate_metadata.py
 python Scripts/A01c_well_filepaths.py
+
+
 
 
 

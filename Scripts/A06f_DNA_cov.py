@@ -13,7 +13,7 @@ metadata_well = pd.read_csv(filepath_wellmetadat)
 
 target_chroms = ["chr" + str(i) for i in range(1, 22)]
 total_autosomal_bases = \
-    pd.read_csv("/u/project/cluo/chliu/Genomes/human_gencode_v40/chromsizes.tsv",
+    pd.read_csv(os.environ['ref_chromsizes'],
                 sep = "\t", header = None, index_col = 0).loc[target_chroms, 1].sum()
 
 

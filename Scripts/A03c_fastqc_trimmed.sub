@@ -17,7 +17,8 @@ echo " "
 
 
 
-# environment init ------------------—------------------—-----------------------
+
+# environment init -------------------------------------------------------------
 
 . /u/local/Modules/default/init/modules.sh # <--
 module load anaconda3 # <--
@@ -32,35 +33,34 @@ overwrite_random_wells=false # <-- overwrite target list of wells (false by defa
 
 
 
-
-# choose random wells ------------------—------------------—--------------------
+# choose random wells ----------------------------------------------------------
 
 # randomly select $n_wells from each prefix associated with 'raw_fastq' R1s to run fastqc on
-# & saves the names of the corresponding R1 .fastq in "$wells_to_run"
+# & saves the names of the corresponding R1 .fastq in "${wells_to_run}"
 
 # warning: will overwrite this .txt if already exists,
 # to avoid re-running more files than expected / the same files multiple times
 
 mkdir qc_trimmed
 
-if [[ -e $wells_to_run && "$overwrite_random_wells" == true ]]
+if [[ -e ${wells_to_run} && "${overwrite_random_wells}" == true ]]
     then
     
         echo "warning: Scripts/A02c_random_fastqc_wells.txt already exists."
         echo "deleting and re-randomizing. (overwrite_random_wells=true)"
 
-        rm $wells_to_run
+        rm ${wells_to_run}
 fi
 
 # make random samples (otherwise skip)
-if [[ ! -e $wells_to_run ]]
+if [[ ! -e ${wells_to_run} ]]
 then
-    for prefix in $(cut -f 2 -d ',' $metadat_plate | tail -n +2);
+    for prefix in $(cut -f 2 -d ',' ${metadat_plate} | tail -n +2);
         do
         printf '%s\n' $(ls fastq_trimmed/${prefix}*R1*fastq.gz \
                         | shuf \
-                        | head -n $n_wells) \
-             >> $wells_to_run
+                        | head -n ${n_wells}) \
+             >> ${wells_to_run}
         done
 else
     echo "warning: Scripts/A02c_random_fastqc_wells.txt already exists."
@@ -68,22 +68,22 @@ else
 fi
 
 # print wells for record in sublog
-echo -e "\nnum wells sampled: $(wc -l $wells_to_run)\n"
-cat $wells_to_run
+echo -e "\nnum wells sampled: $(wc -l ${wells_to_run})\n"
+cat ${wells_to_run}
 
 
 
 
-# apply fastqc ------------------—------------------—---------------------------
+# apply fastqc -----------------------------------------------------------------
 
 # run fastqc on the randomly selected wells
 echo "running fastqc on each well."
 while read r1file;
     do
         wellprefix=$(echo $(basename ${r1file}) | awk -F"_indexed" '{print $1}')
-        echo $(ls fastq_trimmed/$wellprefix)
-        fastqc -t 4 fastq_trimmed/$wellprefix* -o qc_trimmed/
-    done < $wells_to_run
+        echo $(ls fastq_trimmed/${wellprefix})
+        fastqc -t 4 fastq_trimmed/${wellprefix}* -o qc_trimmed/
+    done < ${wells_to_run}
 
 # compile across wells
 echo "aggregating via multiqc."

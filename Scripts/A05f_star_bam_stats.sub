@@ -1,19 +1,20 @@
 
 #!/bin/bash
 #$ -cwd
-#$ -o sublogs/A05g_samstat_star.$JOB_ID.$TASK_ID
+#$ -o sublogs/A05f_samstat_star.$JOB_ID.$TASK_ID
 #$ -j y
 #$ -l h_rt=8:00:00,h_data=24G
-#$ -N A05e_samstat_star
+#$ -N A05f_samstat_star
 #$ -t 1-256
-#$ -hold_jid_ad A05c_starfilt
-
+#$ -hold_jid_ad A05d_starfilt_check
 
 
 
 echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `hostname -s`
 echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `date `
 echo " "
+
+
 
 
 
@@ -29,7 +30,6 @@ skip_complete=true # <-- for help with incomplete jobs
 
 
 
-
 # extract target filepaths ------------------—------------------—---------------
 
 # helper functions
@@ -42,7 +42,7 @@ query_metadat () {
               }
       NR>1 {
                 print $assayout
-            }' $metadat_well
+            }' ${metadat_well}
 }
 
 # extract target wells, print values for log
@@ -51,9 +51,9 @@ batchnum=($(query_metadat "batchnum"))
 nwells=${#batchnum[@]}
 
 target_well_rows=()
-for ((row=1; row<=nwells; row++))
+for ((row=1; row<=$nwells; row++))
 do
-    if [[ "${batchnum[$row]}" == "$SGE_TASK_ID" ]]
+    if [[ "${batchnum[$row]}" == "${SGE_TASK_ID}" ]]
     then
         target_well_rows+=($row)
     fi
@@ -73,7 +73,7 @@ dir_well=($(query_metadat "A05a_dir_star"))
 for row in ${target_well_rows[@]} 
 do
 
-    cd $projdir
+    cd $dir_proj
     
     if [[ -s ${dir_well[$row]}/samstats_PE \
         && -s ${dir_well[$row]}/samstats_SE1 \
@@ -81,7 +81,7 @@ do
         && -s ${dir_well[$row]}/picard_PE \
         && -s ${dir_well[$row]}/picard_SE1 \
         && -s ${dir_well[$row]}/picard_SE2 \
-        && "$skip_complete"=="true" ]]
+        && "${skip_complete}"=="true" ]]
     then
         echo -e "final aligned .bams for '${wellprefix[$row]}' already exist. skipping this well.'"
     else
@@ -98,19 +98,22 @@ do
         # run picard collectrnaseqmetrics
         samtools sort PE.Final.bam | \
             picard CollectRnaSeqMetrics -I /dev/stdin -O picard_PE \
-            --REF_FLAT $ref_flat -STRAND "NONE" --RIBOSOMAL_INTERVALS $ref_rrna
+            --REF_FLAT ${ref_flat} -STRAND "NONE" --RIBOSOMAL_INTERVALS ${ref_rrna}
         samtools sort SE1.Final.bam | \
             picard CollectRnaSeqMetrics -I /dev/stdin -O picard_SE1 \
-            --REF_FLAT $ref_flat -STRAND "NONE" --RIBOSOMAL_INTERVALS $ref_rrna
+            --REF_FLAT ${ref_flat} -STRAND "NONE" --RIBOSOMAL_INTERVALS ${ref_rrna}
         samtools sort SE2.Final.bam | \
             picard CollectRnaSeqMetrics -I /dev/stdin -O picard_SE2 \
-            --REF_FLAT $ref_flat -STRAND "NONE" --RIBOSOMAL_INTERVALS $ref_rrna
+            --REF_FLAT ${ref_flat} -STRAND "NONE" --RIBOSOMAL_INTERVALS ${ref_rrna}
             
     fi
 done
 
 
-echo -e "\n\n'A05e_samstat_star' completed.\n\n"
+
+
+
+echo -e "\n\n'A05f_samstat_star' completed.\n\n"
 
 
 

@@ -35,13 +35,13 @@ mkdir mcds
 
 allcools generate-dataset  \
     --allc_table Scripts/A04b_allclists_${SGE_TASK_ID}.tsv \
-    --output_path mcds/$SGE_TASK_ID.mcds \
-    --chrom_size_path $ref_chromsizes \
+    --output_path mcds/${SGE_TASK_ID}.mcds \
+    --chrom_size_path ${ref_chromsizes} \
     --obs_dim cell \
     --cpu 8 \
     --chunk_size 400 \
     --regions chrom100k 100000 \
-    --regions genebody $ref_genebody \
+    --regions genebody ${ref_genebody} \
     --quantifiers chrom100k count CGN,CHN \
     --quantifiers genebody count CGN,CHN
 

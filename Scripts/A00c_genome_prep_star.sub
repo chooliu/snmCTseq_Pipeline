@@ -5,8 +5,9 @@
 #$ -j y
 #$ -N A00c_prep_star
 #$ -l h_rt=24:00:00,h_data=8G,highp
-#$ -pe shared 4
+#$ -pe shared 8
 #$ -hold_jid A00a_genome_dl_index
+
 
 
 
@@ -17,7 +18,7 @@ echo " "
 
 
 
-# environment init ------------------—------------------—---------------------
+# environment init ------------------—------------------—-----------------------
 
 . /u/local/Modules/default/init/modules.sh # <--
 module load anaconda3 # <--
@@ -27,21 +28,23 @@ export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
 
 
 
-# star index ------------------—------------------—---------------------------
+# star index ------------------—------------------—-----------------------------
+# assumes 2x150 paired-end
 
-STAR --runThreadN 4 \
+STAR --runThreadN 8 \
 --runMode genomeGenerate \
---genomeDir $ref_dir/STAR \
---genomeFastaFiles $ref_fasta \
---sjdbGTFfile $ref_gtf \
+--genomeDir ${ref_dir}/STAR149 \
+--genomeFastaFiles ${ref_fasta} \
+--sjdbGTFfile ${ref_gtf} \
 --sjdbOverhang 149
+
 
 
 
 
 echo -e "\n\n'A00c_genome_prep_star' completed.\n\n"
 
-    
+
 echo "Job $JOB_ID ended on:   " `hostname -s`
 echo "Job $JOB_ID ended on:   " `date `
 echo " "

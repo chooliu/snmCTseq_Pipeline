@@ -4,6 +4,11 @@
 ![Overview of snmCT-seq pipeline.](../Documentation/snmCT_overview.png)
 
 
+## Library Structure
+
+![Layout of snm3C library sequences.](../Documentation/library_structure.png)
+Each read contains either bisulfite-converted DNA sequence *or* fully methylated transcriptomic cDNA (these are separated _in silico_). For expected nucleotide sequences, please see our library's [seqspec](https://igvf.github.io/seqspec/specs/snmCTseq/spec.html).
+
 
 ## Table of Contents
 
@@ -173,7 +178,15 @@ qsub Scripts/A03c_fastqc_trimmed.sub
 * The "H" sequence refers to A, C, and T nucleotides.
 * The contaminating sequence list is in `Scripts/A03a_adapter_sequences.fa`. Illumina adapter contamination is most common (Smart-primers rare). I included reverse compliments in case of very small insert size libraries.
 * `FastQC` occasionally reports wells with high Illumina adapter sequence (often >50% adapter &rarr; still ~20-30% post-trimming) that are not removed by other trimming programs (incl. cutadapt, TrimGalore) or multiple rounds of trimming (comparable residual % adapter, but much higher resource requirements). Ancedotally, these wells often seem to have some extremely small insert sizes (low/fragmented template and majority artifacts/adapter-dimer?), as well as fewer absolute numbers of demultiplexed reads (by 10 to 100-fold). I don't currently calculate adapter % as a QC metric as these wells usually thus get excluded in downstream QC steps by virtue of read count or mapping rates.
-
+*  ⚠🚨 **Re-submitting incomplete jobs:** Most scripts are designed so that if the output file(s) for a already exists, the well is skipped (`skip_complete=true`). As a consequence, if A03b reports any missing wells, we can simply just submit `qsub Scripts/A03a_trimming_fastp.sub` again without disrupting completed wells.
+* Or, if all of the missing files are from one batch (let's say batch 123), we can run `qsub -t 123 Scripts/A03a_trimming_fastp.sub`.
+* For Hoffman2/SGE users, submitting discontinuous task IDs are not supported. You might consider a for loop in this case. During these resubmissions we could increase the computational resources requested for these resubmissions if the job failure e.g., if there is insufficient memory based on the `sublogs/` text files (probably not the case for A03*, but possible for subsequent steps):
+```
+for batchnum in 1 3 10 50
+do
+     qsub -t $batchnum -l h_data=36G Scripts/A03a_trimming_fastp.sub
+done
+```
 
 ---
 
@@ -215,16 +228,21 @@ qsub Scripts/A04f_coverage_DNA.sub # †
 
 ### A04 Troubleshooting Notes
 * Expected final output: Each well will have its filtered alignments (`.bam`), quants (`.allc.gz`), and some metadata `.txt` files stored under `mapping_bismark/wellprefix/`. There's additionally batch-level metadata (`Metadata/A04d*`) and plate-level region summaries (`mcds/platenum`)
-* Felix Kruger discusses this paired followed by single-end mapping approach for PBAT/single-cell libraries (and other relevant issues like random primer trimming) in the [Bismark FAQ](https://github.com/FelixKrueger/Bismark/blob/master/Docs/FAQ.md).
 * A04a with is the most memory- and time-consuming component of the pipeline, with ~30 minutes per well.
     - Both mapping & quantification are included because they both require high mem; however, could separate if easier to request a greater number of shorter jobs (less walltimes) than a long high resource jobs.
-    - The script attempts to check for already completed/incomplete jobs, so can be resubmitted if not all wells in batch finish.
+    - See "Re-submitting incomplete jobs:" note in Section A03 above -- most scripts including A04a are designed so that if the output file(s) for a already exists, the well is skipped (`skip_complete=true`). Thus if A04b reports any missing wells, we can simply resubmit A04a again without disrupting completed wells.
+* Felix Kruger discusses this paired followed by single-end mapping approach for PBAT/single-cell libraries (and other relevant issues like random primer trimming) in the [Bismark FAQ](https://github.com/FelixKrueger/Bismark/blob/master/Docs/FAQ.md).
 * The major potential pitfall is memory issues during .allc generation, yielding a truncated file (e.g., could stop at chr14, or missing columns). If the `A04b` checks gives many such warnings, considering increasing time/memory requested per batch.
 * The mCH/CH < 0.50 and CH ≥ 3 _in silico_ filtering criteria to define a DNA-sourced read was originally established in the snmCAT-seq paper and re-validated here by estimating misclassification error by applying the two-stage pipeline to two snmC-seq2 (methylation-only) and smart-seq2 (RNA-only) datasets.
     - 0.40% of methylation-only reads are improperly discarded, and 0.45% of RNA-only reads are improperly included (classified as DNA).
     - The new paired-end protocol also allows us to consider whether we should only keep alignments in which both Read 1 and Read 2 were assigned as DNA reads. This type of filtering changes the respective errors to 1.3% and 0.10%. Due to the possibility of DNA-RNA chimeras in the true mixed-template dataset, we elected to keep any DNA-assigned alignment, regardless of its mate's classification.
     - Recommend increasing the minimum number of CH-sites per read if increased stringency is desired. (Currently expanding number of samples & tissue types examined for this evaluation, but these criteria were for brain tissues, which have some known levels of CH-methylation.)
 * During the mCH/CH filtering step in `A04a`, a tab separated file with suffix `_annotations` is generated showing mCH/CH, number of CH, and classification for each alignment to track why reads were excluded. This paired-end, two-stage mapping pipeline can be used with minor modifications for the methylation-only snmC-seq2/3 assay by skipping this filtering step and the STAR mapping (`A05`).
+* MCDS Issues: In practice, I tend to create a conda environment for the bioinformatics processing (`snmCTseq.yaml`) and a separate environment for downstream analysis, including loading the MCDS data. Because the dependencies (`requirements.txt`) for `allcools` are not themselves stringently version-locked, I've recently noticed some possible issues with the MCDS not being in the expected format for allcools downstream functions.
+    - Namely, "chrom100k_chrom",  "chrom100k_start", "chrom100k_end" should be read as "non-dimension coordinates" in `xarray` parlance rather than dimensions.
+    - Thus when we read `mydata = MCDS.open(...)`  and examine  `mydata`, there should be four dimensions (chrom100k, count_type, mc_type, and cell) printed, instead of seven (additionally "chrom100k_chrom", "_start", "_end"). 
+    - I'm currently exploring if this is driven by version mismatches between the bioinformatics environment and analysis environment but cannot clearly reproduce this issue. I think this can be circumvented by running just A05d in the analysis environment instead (replace `conda activate snmCTseq` with `conda activate myanalysisenv`. I may package a recommended base analysis .yaml file in the future. 
+* Files like `mcds/5.mcds_tmp` file are present as the allc to mcds step is running. If any _tmp files are still present after A04c finishes running, I recommend resubmitting that job requesting more time or memory.
 
 ---
 
@@ -252,7 +270,7 @@ qsub Scripts/A05e_star_bam_stats.sub # †
 
 
 ### A05 Troubleshooting Notes
-* Expected final output: Each well will have its filtered alignments (`.bam`) and some metadata `.txt` files stored under `mapping_star/wellprefix/`, and read count quantifications under `featurecounts_gene/` and `featurecounts_exon/`.
+* Expected final output: Each well will have its filtered alignments (`.bam`) and some metadata `.txt` files stored under `mapping_star/wellprefix/`, and read count quantifications under `featurecounts_gene/` and `featurecounts_exon/`. These should be gene x cell matrixes that can be summed (matrix addition of PE + SE1 + SE2).
 * In previous pipeline iterations, `A01` would throw errors about improper loading into memory, or the job never proceeding past genome loading. This seems to be an artifact of jobs running concurrently on the same node. To combat this effect, we request an exclusive node; depending on queue/cluster load, may be more efficient to request a longer job based on `platenum` versus `batchnum`.
 * This mCH/CH > 0.90 filtering criteria was re-verified on snmC-seq2 (methylome-only) and Smart-seq2 (RNA-only). 0.14% of DNA-only sequences were incorrectly classified as RNA. ~0.50% RNA-only sequences were incorrectly discarded.
     - The bisulfite-converted DNA-only sequences generally just do not align (~1.5% mapping rate). 

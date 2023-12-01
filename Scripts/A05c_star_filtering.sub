@@ -3,7 +3,7 @@
 #$ -cwd
 #$ -o sublogs/A05c_starfilt.$JOB_ID.$TASK_ID
 #$ -j y
-#$ -l h_rt=8:00:00,h_data=8G
+#$ -l h_rt=8:00:00,h_data=16G
 #$ -N A05c_starfilt
 #$ -t 1-256
 #$ -hold_jid_ad A05a_star
@@ -13,6 +13,7 @@
 echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `hostname -s`
 echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `date `
 echo " "
+
 
 
 
@@ -41,7 +42,7 @@ query_metadat () {
               }
       NR>1 {
                 print $assayout
-            }' $metadat_well
+            }' ${metadat_well}
 }
 
 # extract target wells, print values for log
@@ -52,7 +53,7 @@ nwells=${#batchnum[@]}
 target_well_rows=()
 for ((row=1; row<=nwells; row++))
 do
-    if [[ "${batchnum[$row]}" == "$SGE_TASK_ID" ]]
+    if [[ "${batchnum[$row]}" == "${SGE_TASK_ID}" ]]
     then
         target_well_rows+=($row)
     fi
@@ -74,6 +75,16 @@ bam_in_pe=PE.Aligned.out.bam
 bam_in_se1=SE1.Aligned.out.bam
 bam_in_se2=SE2.Aligned.out.bam
 
+# de-duplicated .bam
+bam_dedupe_pe=pe_dedupe.bam
+bam_dedupe_se1=se1_dedupe.bam
+bam_dedupe_se2=se2_dedupe.bam
+
+# de-duplication logs
+picard_log_pe=star_dedupe_pe.log
+picard_log_se1=star_dedupe_se1.log
+picard_log_se2=star_dedupe_se2.log
+
 # final .sam
 sam_q10_pe=q10_pe.sam
 sam_q10_se1=q10_se1.sam
@@ -92,12 +103,12 @@ do
     # check for existing mapping output
     # if final outputs exist, skip; else run filtering of direct STAR align
     
-    cd $projdir
+    cd ${dir_proj}
     
-    if [[ -s ${dir_well[$row]}/$bam_final_pe \
-        && -s ${dir_well[$row]}/$bam_final_se1 \
-        && -s ${dir_well[$row]}/$bam_final_se2 \
-        && "$skip_complete"=="true" ]]
+    if [[ -s ${dir_well[$row]}/${bam_final_pe} \
+        && -s ${dir_well[$row]}/${bam_final_se1} \
+        && -s ${dir_well[$row]}/${bam_final_se2} \
+        && "${skip_complete}"=="true" ]]
     then
         echo -e "final aligned .bams for '${wellprefix[$row]}' already exist. skipping this well.'"
     else
@@ -107,11 +118,11 @@ do
         
 
         # proceed if all input files exist
-        if [[ -s $bam_in_pe && -s $bam_in_se1 && -s $bam_in_se2 ]]
+        if [[ -s ${bam_in_pe} && -s ${bam_in_se1} && -s ${bam_in_se2} ]]
         then
 
             # clear intermediate files (if not all of them exist)
-            rm $bam_final_pe $bam_final_se1 $bam_final_se2 2>&1 >/dev/null
+            rm ${bam_final_pe} ${bam_final_se1} ${bam_final_se2} 2>&1 >/dev/null
 
         # run RNA filtering ------------------—------------------—-----------------
         # in: three .bams from STAR mapping: $bam_in_* (paired-end, single-end read 1, read 2)
@@ -120,7 +131,7 @@ do
         # ------------------—------------------—-----------------------------------
         
         # STAR will output singletons in .bam file
-        # (e.g., read 2 maps but read 1 doesn't; samtools view -f 8 $bam_in_pe)
+        # (e.g., read 2 maps but read 1 doesn't; samtools view -f 8 ${bam_in_pe})
         # hence the "-f 0x0002" flag for "proper pairs" only, and SE alignments merged with...
         # in later sections, "-f 0x0048" (the read is R1; it mapped but R2 mate didn't map) 
         #                and "-f 0x0088" (the read is R2; it mapped but R1 mate didn't map)
@@ -132,34 +143,56 @@ do
         #     | awk '{print $0}1' > ${sam_q10_pe}_annotations_bothpairs
         # then awk filter off of this 'bothpairs' file
         
-        # each step usually ~1-2 min
+        # each step usually ~3-5 min
 
         # (i) paired-end
-        samtools view -h -q 10 -f 0x0002 $bam_in_pe > $sam_q10_pe
-        perl $projdir/Scripts/A05c_classify_mCT_reads_STAR.pl $sam_q10_pe
+        picard MarkDuplicates -I ${bam_in_pe} \
+            --ASSUME_SORT_ORDER "queryname" --OPTICAL_DUPLICATE_PIXEL_DISTANCE 2500 \
+            --ADD_PG_TAG_TO_READS false --DUPLICATE_SCORING_STRATEGY RANDOM --REMOVE_DUPLICATES \
+            -O ${bam_dedupe_pe} -M ${picard_log_pe}
+
+        samtools view -h -q 10 -f 0x0002 ${bam_dedupe_pe} > ${sam_q10_pe}
+        perl ${dir_proj}/Scripts/A05c_classify_mCT_reads_STAR.pl ${sam_q10_pe}
         awk 'NR == FNR { if ($0=="" || $3=="RNA") line[NR]; next } (FNR in line)' \
                 ${sam_q10_pe}_annotations ${sam_q10_pe} |
-                samtools view -b - | samtools sort - > $bam_final_pe
-        samtools index $bam_final_pe
+                samtools view -b - | samtools sort - > ${bam_final_pe}
+        samtools index ${bam_final_pe}
+
+
 
         # (ii) single-end, read 1
-        samtools view -h -q 10 $bam_in_se1 > $sam_q10_se1
-        perl $projdir/Scripts/A05c_classify_mCT_reads_STAR.pl $sam_q10_se1
+        picard MarkDuplicates -I ${bam_in_se1} \
+            --ASSUME_SORT_ORDER "queryname" --OPTICAL_DUPLICATE_PIXEL_DISTANCE 2500 \
+            --ADD_PG_TAG_TO_READS false --DUPLICATE_SCORING_STRATEGY RANDOM --REMOVE_DUPLICATES \
+            -O ${bam_dedupe_se1} -M ${picard_log_se1}
+            
+        samtools view -h -q 10 ${bam_dedupe_se1} > ${sam_q10_se1}
+        perl ${dir_proj}/Scripts/A05c_classify_mCT_reads_STAR.pl ${sam_q10_se1}
         awk 'NR == FNR { if ($0=="" || $3=="RNA") line[NR]; next } (FNR in line)' \
                 ${sam_q10_se1}_annotations ${sam_q10_se1} |
-                samtools view -b - | samtools sort - > $bam_final_se1
-        samtools index $bam_final_se1
+                samtools view -b - | samtools sort - > ${bam_final_se1}
+        samtools index ${bam_final_se1}
+
+
 
         # (iii) single-end, read 2
-        samtools view -h -q 10 $bam_in_se2 > $sam_q10_se2
-        perl $projdir/Scripts/A05c_classify_mCT_reads_STAR.pl $sam_q10_se2
+        picard MarkDuplicates -I ${bam_in_se2} \
+            --ASSUME_SORT_ORDER "queryname" --OPTICAL_DUPLICATE_PIXEL_DISTANCE 2500 \
+            --ADD_PG_TAG_TO_READS false --DUPLICATE_SCORING_STRATEGY RANDOM --REMOVE_DUPLICATES \
+            -O ${bam_dedupe_se2} -M ${picard_log_se2}
+            
+        samtools view -h -q 10 ${bam_dedupe_se2} > ${sam_q10_se2}
+        perl ${dir_proj}/Scripts/A05c_classify_mCT_reads_STAR.pl ${sam_q10_se2}
         awk 'NR == FNR { if ($0=="" || $3=="RNA") line[NR]; next } (FNR in line)' \
                 ${sam_q10_se2}_annotations ${sam_q10_se2} |
-                samtools view -b - | samtools sort - > $bam_final_se2
-        samtools index $bam_final_se2
+                samtools view -b - | samtools sort - > ${bam_final_se2}
+        samtools index ${bam_final_se2}
+        
+        
 
         # (iv.) optional clean-up (comment out as desired)
-        rm $sam_q10_pe $sam_q10_se1 $sam_q10_se2
+        rm ${bam_dedupe_pe} ${bam_dedupe_se1} ${bam_dedupe_se2}
+        rm ${sam_q10_pe} ${sam_q10_se1} ${sam_q10_se2}
         # rm *annotations
 
         fi
@@ -167,8 +200,7 @@ do
 done
 
 
-
-echo "completed 'A05c_star_filtering.'"
+echo -e "\n\n'A05c_star_filtering' completed.\n\n"
 
 
 

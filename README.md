@@ -19,7 +19,7 @@
 
 ## Getting Started
 
-1. Clone this repo (`git clone`) or download via the [Releases page](https://github.com/chooliu/snmCTseq_Pipeline/releases). Rename folder to an informative "project directory" name.
+1. Clone this repo (`git clone https://github.com/chooliu/snmCTseq_Pipeline.git`) or download via the [Releases page](https://github.com/chooliu/snmCTseq_Pipeline/releases). Rename folder to an informative "project directory" name.
 
 2. Install dependencies listed in `Documentation/snmCTseq.yml`. Installation and environment management via conda highly recommended.
 ```
@@ -34,7 +34,7 @@ conda env create -f Documentation/snmCTseq.yml
 \
 \* Alternatively, if you can access your server via Juypter, run each `.ipynb` in the `Notebooks` folder sequentially for organized script editing & access to extra in-line comments (also viewable in this repo's [Notebooks folder on Github](./Notebooks)).
 
-4. Submit each submission scripts (`.sub` extension) in order:  `A00a`, `A00b`, `A00c`, `A01a`, `A01b`, ... I usually `qsub` all `A00*` scripts at once, all `A01*` at once, etc. Also see [Detailed Overview](./Documentation/detailed_overview.md) page.
+4. Submit each submission scripts (`.sub` extension) in order:  `A00a`, `A00b`, `A00c`, `A01a`, `A01b`, ... I usually `qsub` all `A00*` scripts at once, all `A01*` at once, etc.
 
 
 
@@ -48,7 +48,7 @@ conda env create -f Documentation/snmCTseq.yml
 
 ### Related Pipelines
 
-This pipeline originated from my experimental updates for processing snmCT-seq (and closely related methylation-only snmC-seq3) data using **paired-end alignment and quantification**. Its current construction is thus a set of scripts tailored to the UCLA Hoffman2 computing server for accessibility; however, I'm actively developing a production-ready snakemake analog without substantive changes planned to the underlying commands.
+This pipeline originated from my experimental updates for processing snmCT-seq  (and closely related methylation-only snmC-seq3) data using **paired-end alignment and quantification**. Its current construction is thus a set of scripts tailored to the UCLA Hoffman2 computing server for accessibility.
 
 Related work to consider:
 
@@ -58,16 +58,15 @@ Related work to consider:
 
 ### Technology References
 
-Flagship assay paper (where "mCAT" = mCT plus additional NOME-seq for chromatin accessibility profiling, but also is our prefered citation for snmCT-seq)
-* [snmCAT-seq](https://pubmed.ncbi.nlm.nih.gov/35419551/): 
-Luo, C. et al. Single nucleus multi-omics identifies human cortical cell regulatory genome diversity. Cell Genomics 2, 100107 (2022).
-
-Understanding the underlying mC and RNA reactions:
-* [snmC-seq2](https://pubmed.ncbi.nlm.nih.gov/30237449/): Luo, C. et al. Robust single-cell DNA methylome profiling with snmC-seq2. Nat. Commun. 9, 7–12 (2018).
-*  [Smart-seq2](https://pubmed.ncbi.nlm.nih.gov/24385147/): Picelli, S. et al. Full-length RNA-seq from single cells using Smart-seq2. Nat. Protoc. 9, 171–181 (2014).
+* Our library structure is described in the [Detailed Overview](./Documentation/detailed_overview.md) and a [seqspec](https://igvf.github.io/seqspec/specs/snmCTseq/spec.html). 
+* Flagship assay paper (where "mCAT" = mCT plus additional NOME-seq for chromatin accessibility profiling, but also is our prefered citation for snmCT-seq)
+    - [snmCAT-seq](https://pubmed.ncbi.nlm.nih.gov/35419551/): Luo, C. et al. Single nucleus multi-omics identifies human cortical cell regulatory genome diversity. Cell Genomics 2, 100107 (2022).
+* Understanding the underlying mC and RNA reactions:
+    - [snmC-seq2](https://pubmed.ncbi.nlm.nih.gov/30237449/): Luo, C. et al. Robust single-cell DNA methylome profiling with snmC-seq2. Nat. Commun. 9, 7–12 (2018).
+    - [Smart-seq2](https://pubmed.ncbi.nlm.nih.gov/24385147/): Picelli, S. et al. Full-length RNA-seq from single cells using Smart-seq2. Nat. Protoc. 9, 171–181 (2014).  [Note: we are now on [snmC-seq3](https://www.protocols.io/view/snm3c-seq3-cwxuxfnw.html) but only a wet lab protocol citation exists.]
 
 ### Acknowledgements
 
 * Dr. Chongyuan Luo (original workflow, demultiplexing/filtering scripts)
 * Dr. Hanqing Liu ([@lhqing](https://github.com/lhqing)) for updating allcools for paired-end processing
-* Luo Lab collaborators/members for pipeline testing and feedback, namely Dr. Katie Eyring (Geschwind Lab), Kevin Abuhanna, and Terence Li.
+* Luo Lab collaborators/members for pipeline testing and feedback, namely Dr. Katie Eyring (Geschwind Lab), Nasser Elhajjaoui, Kevin Abuhanna, and Terence Li.

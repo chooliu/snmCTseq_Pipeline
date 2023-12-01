@@ -27,41 +27,40 @@ export $(cat snmCT_parameters.env | grep -v '^#' | xargs)  # <--
 
 # get list of plates, files ------------------—------------------—--------------
 
-cd $dir_proj
 mkdir fastq_raw
 
 list_of_plates=(
-  $(for plateid in $dir_originalfastq/*R1*;
+  $(for plateid in ${dir_originalfastq}/*R1*;
     do
-    echo $(basename ${plateid%_L00[1-4]_*});
+    echo $(basename ${plateid%_L00[1-8]_*});
     done | uniq | sort))
-target_plate=${list_of_plates[$SGE_TASK_ID - 1]}
+target_plate=${list_of_plates[${SGE_TASK_ID} - 1]}
 
 
 # print array task and plate name
 # make sure $target_plate is uniquely identifiable &
 # doesn't group more than the four lanes typically excepected
-echo -e "\n\ntarget plate number (SGE_TASK_ID):" $SGE_TASK_ID
-echo "target plate prefix:" $target_plate
+echo -e "\n\ntarget plate number (SGE_TASK_ID):" ${SGE_TASK_ID}
+echo "target plate prefix:" ${target_plate}
 
 
 
 # merge R1, then R2 files across lanes ------------------—------------------—---
 
-filesin_r1=($(ls $dir_originalfastq/*$target_plate*R1*fastq.gz))
-filesin_r2=($(ls $dir_originalfastq/*$target_plate*R2*fastq.gz))
+filesin_r1=($(ls ${dir_originalfastq}/*${target_plate}*R1*fastq.gz))
+filesin_r2=($(ls ${dir_originalfastq}/*${target_plate}*R2*fastq.gz))
 
 echo -e "\n\nmerging Read 1 files:"
 for file in ${filesin_r1[@]}
 do 
-    du -h $file
+    du -h ${file}
 done
 cat ${filesin_r1[@]} > fastq_raw/${target_plate}_R1.fastq.gz
 
 echo -e "\n\nmerging Read 2 files:"
 for file in ${filesin_r2[@]}
 do 
-    du -h $file
+    du -h ${file}
 done
 cat ${filesin_r2[@]} > fastq_raw/${target_plate}_R2.fastq.gz
 

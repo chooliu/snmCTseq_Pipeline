@@ -3,7 +3,7 @@
 #$ -cwd
 #$ -o sublogs/A03a_trim.$JOB_ID.$TASK_ID
 #$ -j y
-#$ -l h_rt=3:00:00,h_data=8G
+#$ -l h_rt=8:00:00,h_data=8G
 #$ -N A03a_trim
 #$ -t 1-256
 #$ -hold_jid A02a_demultip
@@ -17,7 +17,8 @@ echo " "
 
 
 
-# environment init ------------------—------------------—-----------------------
+
+# environment init -------------------------------------------------------------
 
 . /u/local/Modules/default/init/modules.sh # <--
 module load anaconda3 # <--
@@ -29,7 +30,7 @@ overwrite_existing=false # <-- for help with incomplete jobs
 
 
 
-# extract target filepaths ------------------—------------------—---------------
+# extract target filepaths -----------------------------------------------------
 
 # helper functions
 query_metadat () {
@@ -41,7 +42,7 @@ query_metadat () {
               }
       NR>1 {
                 print $assayout
-            }' $metadat_well
+            }' ${metadat_well}
 }
 
 # extract target wells, print values for log
@@ -52,7 +53,7 @@ nwells=${#batchnum[@]}
 target_well_rows=()
 for ((row=1; row<=nwells; row++))
 do
-    if [[ "${batchnum[$row]}" == "$SGE_TASK_ID" ]]
+    if [[ "${batchnum[$row]}" == "${SGE_TASK_ID}" ]]
     then
         target_well_rows+=($row)
     fi
@@ -75,10 +76,10 @@ jsonout=($(query_metadat "A03a_json_fastp"))
 
   
   
-# run fastp for trimming ------------------—------------------—---------------
+# run fastp for trimming -----------------------------------------------------
 
-echo "batch number: $SGE_TASK_ID"
-echo "processing the following rows in well metadata file ($metadat_well):"
+echo "batch number: ${SGE_TASK_ID}"
+echo "processing the following rows in well metadata file (${metadat_well}):"
 
 for row in ${target_well_rows[@]}
 do
@@ -95,7 +96,7 @@ do
 
     # check for existing trimming output
     # if well already processed, skip; if file doesn't exist, run fastp
-    if [[ -s ${r2singletrim[$row]} && -s ${jsonout[$row]} && "$overwrite_existing" != true ]]
+    if [[ -s ${r2singletrim[$row]} && -s ${jsonout[$row]} && "${overwrite_existing}" != true ]]
         then
             echo -e "output files for '${wellprefix[$row]}' already exist and overwrite_existing=false. skipping.'"
         else
@@ -113,8 +114,8 @@ done
 
 
 
-echo -e "\n\n'A03a_trim' completed.\n\n"
 
+echo -e "\n\n'A03a_trim' completed.\n\n"
 
 
 

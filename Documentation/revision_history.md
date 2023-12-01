@@ -4,6 +4,21 @@ Key updates from past iterations (& some superfluous details as notes for myself
 
 # Public Release, v1
 
+**v1.1.3**
+
+Miscellaneous bug fixes (mainly still from shift from hardcoded paths towards use of `.env` file). No substantial change to pipeline itself. Special thanks to Nasser for help troubleshooting.
+- some scripts incorrectly referenced `$projdir` instead of `$dir_proj`.
+- In A01a, Picard CreateSequenceDictionary should use .fa as input.
+- In A01b, allow up to 8 lanes (L001-L008) instead of 4 for newer Illumina sequencers.
+- In A01c, set `regex = True` to future proof `pd.str.replace`. (Default behavior will be False in figure)
+- In A01d genome reference setup, `refFlat.txt.gz` generation had columns in incorrect order, resulting in errors downstream using Picard CollectRnaSeqMetrics. (needed to paste column 12, then 1-10; old version had other way around). 
+- function in scripts like A04b checking the number of missing files per batch weren't working properly, needed to explicitly re-code input as bash array. to delineate the fixed version, corrected function renamed from `check_filepath_in_batch` into  `check_filepath_by_batch`.
+- A06: fix one instance of hard-coded `ref_chromsizes`.
+- reverting one A07 change from v1.1.2 where it should have been relative to `metadata_plate`. 
+- increase some memory/time requirements
+- updated readme, added more FAQs to detailed_overview
+
+
 **v1.1.2**
 
 - Change paths in `A00*` scripts to be relative to `.env` parameters (versus hardcoded `.fasta` names).

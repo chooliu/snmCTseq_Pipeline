@@ -5,6 +5,9 @@
 #$ -j y
 #$ -N A00d_gtf_annotations_bed
 #$ -l h_rt=0:30:00,h_data=8G
+#$ -hold_jid A00a_genome_dl_index
+
+
 
 
 
@@ -14,7 +17,7 @@ echo " "
 
 
 
-# environment init ------------------—------------------—---------------------
+# environment init ------------------—------------------—-----------------------
 
 . /u/local/Modules/default/init/modules.sh # <--
 module load anaconda3 # <--
@@ -24,33 +27,40 @@ export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
 
 
 
-# process .gtf --> .bed ------------------—------------------—----------------
+# process .gtf --> .bed ------------------—------------------—------------------
 
-mkdir $ref_dir/annotations
+mkdir ${ref_dir}/annotations
 
 python Scripts/A00d_gtf_annotations_bed.py
 
 
-# UCSC/Picard utilities for QC metrics ------------------—------------------—-
 
-cd $ref_dir
+# UCSC/Picard utilities for QC metrics ------------------—------------------—---
+
+cd ${ref_dir}
+
+# rRNA interval list
+picard BedToIntervalList -I annotations/rRNA.bed -O \
+annotations/rRNA.intervallist -SD ${ref_fasta/fa/dict}
+
 
 # rRNA interval list
 picard BedToIntervalList -I annotations/rRNA.bed -O \
     annotations/rRNA.intervallist -SD ${ref_fasta/fa/dict}
 
-# ref flat
-gtfToGenePred -genePredExt -geneNameAsName2 $ref_gtf refFlat.tmp.txt
-cut -f 1-10 refFlat.tmp.txt > refFlat.tmp1
-cut -f 12 refFlat.tmp.txt > refFlat.tmp2
+# ref flat: equiv to genepred fmt minus some tailing columns
+gtfToGenePred -genePredExt -geneNameAsName2 ${ref_gtf} refFlat.tmp.txt
+cut -f 12 refFlat.tmp.txt > refFlat.tmp1
+cut -f 1-10 refFlat.tmp.txt > refFlat.tmp2
 
 paste refFlat.tmp1 refFlat.tmp2 > annotations/refFlat.txt
 gzip annotations/refFlat.txt
 
 rm refFlat.tmp*
+  
 
-
-
+  
+  
 
 echo -e "\n\n'A00d_gtf_annotations_bed' completed.\n\n"
 

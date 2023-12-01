@@ -3,10 +3,10 @@
 #$ -cwd
 #$ -o sublogs/A02a_demultiplex.$JOB_ID.$TASK_ID
 #$ -j y
-#$ -l h_rt=6:00:00,h_data=24G
+#$ -l h_rt=12:00:00,h_data=24G
 #$ -t 1-16
 #$ -N A02a_demultip
-#$ -hold_jid_ad A01a_merge_lanes
+#$ -hold_jid A01b_plate_metadata
 
 
 
@@ -30,10 +30,12 @@ export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
 
 # extract target filepaths -----------------------------------------------------
 
-platename=$(awk -v linenum=$SGE_TASK_ID -F ',' '$1 == linenum' $metadat_plate | cut -d , -f 2)
+platename=$(awk -v linenum=$SGE_TASK_ID -F ',' '$1 == linenum' ${metadat_plate} | cut -d , -f 2)
 
 r1file="fastq_raw/${platename}_R1.fastq.gz"
 r2file="fastq_raw/${platename}_R2.fastq.gz"
+
+mkdir fastq_demultip
 
 
 
@@ -47,7 +49,9 @@ do
 done
 
 
+
 echo -e "\n\n'A02a_demultip' completed.\n\n"
+
 
 
 

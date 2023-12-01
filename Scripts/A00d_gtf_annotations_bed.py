@@ -1,5 +1,4 @@
 
-
 # ==============================================================================
 # A00d_gtf_annotations_bed.py 
 # exports four annotation-related files to $ref_dir (reference genome)
@@ -16,14 +15,14 @@
 
 
 
-# load packages -------------------------------------------------------------------
+# load packages ----------------------------------------------------------------
 
 import pandas as pd
 import os
 
 
 
-# load reference info -------------------------------------------------------------
+# load reference info ----------------------------------------------------------
 
 os.chdir(os.environ['ref_dir'])
 os.makedirs("annotations/", exist_ok=True)
@@ -35,7 +34,7 @@ chrom_sizes.columns = ['#chr', 'chrlen']
 
 
 
-# genebody ------------------------------------------------------------------------
+# genebody ---------------------------------------------------------------------
 # .gtf to .bed (1-based --> 0 based)
 # columns: chr, start, end, ENSG identifier
 # note that this contains mitochondrial, ribosomal, lncRNAs, etc;
@@ -53,7 +52,7 @@ genebody['type'] = genebody['annot'].transform(lambda x: str(x).split('\"')[3])
 
 # .gtf checks: should be zero
 if sum(genebody.gene.duplicated()) != 0 | sum(genebody.start >= genebody.end) != 0:
-    print("WARNING: check .bed outputs; was gene info was processed correctly from .gtf?")
+  print("WARNING: check .bed outputs; was gene info was processed correctly from .gtf?")
 
 # export ENSG --> Symbol
 genebody.drop('annot', axis = 1, inplace = True)
@@ -65,7 +64,7 @@ genebody.to_csv("annotations/genebody.bed", sep = "\t", index = False)
 
 
 
-# gene +/- 2kb --------------------------------------------------------------------
+# gene +/- 2kb -----------------------------------------------------------------
 # above, but padding a 2kb region
 # past manuscripts do this for higher mC modality coverage, but less interpretable
 
@@ -84,9 +83,22 @@ g2k.drop('chrlen', axis = 1, inplace=True)
 g2k.to_csv("annotations/geneslop2k.bed", sep = "\t", index = False)
 
 
+# exonic -----------------------------------------------------------------------
+# exon-level annotations, useful for STAR exon-only quant, potential ASE
 
-# rRNA genes -----------------------------------------------------------------------
-# for a later QC metric after RNA alignments
+exon = gtf_file[gtf_file.iloc[:, 2] == 'exon'].iloc[:, [0, 3, 4, 8]]
+exon.iloc[:, 1] = exon.iloc[:, 1] - 1 # start changes to 0-pos
+exon.columns = ['#chr', 'start', 'end', 'annot']
+
+exon['gene'] = exon['annot'].transform(lambda x: str(x).split('\"')[1])
+exon['transcript'] =  exon['annot'].transform(lambda x: str(x).split('\"')[3])
+exon = exon.drop('annot', axis = 1).reset_index(drop=True)
+exon.to_csv("annotations/exon.bed", sep = "\t", index = False)
+
+
+
+# rRNA genes -------------------------------------------------------------------
+# for some QC metrics after RNA alignments
 
 rRNA = genebody.loc[gtf_file.iloc[:, 8].str.contains("rRNA"), :]
 rRNA.to_csv("annotations/rRNA.bed", sep = "\t", index = False)

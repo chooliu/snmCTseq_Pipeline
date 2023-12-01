@@ -15,7 +15,7 @@ import numpy as np
 import os
 
 # if running interactively, check snmCT_parameters.env loaded or manually spec os.environ e.g.,
-# os.environ['projdir'] ="/u/project/cluo/chliu/Analyses/IGVF"; os.chdir(os.environ['projdir'])
+# os.environ['dir_proj'] ="/u/project/cluo/chliu/Analyses/IGVF"; os.chdir(os.environ['dir_proj'])
 # os.environ['metadat_plate'] = "Metadata/A01b_plate_metadata.csv"
 # os.environ['metadat_well'] = "Metadata/A01c_well_filepath.csv"
 
@@ -105,18 +105,18 @@ filepath_df['A04a_dir_bismark'] = "mapping_bismark/" + filepath_df['wellprefix']
 
 # (i) paired-end mapping outputs
 filepath_df['A04a_bam_bismark_PE'] = \
-filepath_df['A04a_dir_bismark'] + filepath_df['A03a_fqgz_paired_R1'].apply(basename).str.replace(".fastq.gz", "_bismark_bt2_pe.bam")
+filepath_df['A04a_dir_bismark'] + filepath_df['A03a_fqgz_paired_R1'].apply(basename).str.replace(".fastq.gz", "_bismark_bt2_pe.bam", regex = True)
 filepath_df['A04a_fqgz_unmap_R1'] = \
 filepath_df['A04a_dir_bismark'] + filepath_df['A03a_fqgz_paired_R1'].apply(basename) + "_unmapped_reads_1.fq.gz"
 filepath_df['A04a_fqgz_unmap_R2'] = \
 filepath_df['A04a_dir_bismark'] + filepath_df['A03a_fqgz_paired_R2'].apply(basename) + "_unmapped_reads_2.fq.gz"
 
 # single-end mapping outputs
-filepath_df['A04a_bam_bismark_SE1trim'] = filepath_df['A04a_dir_bismark'] + filepath_df['A03a_fqgz_singletrim_R1'].apply(basename).str.replace(".fastq.gz", "_bismark_bt2.bam")
-filepath_df['A04a_bam_bismark_SE2trim'] = filepath_df['A04a_dir_bismark'] + filepath_df['A03a_fqgz_singletrim_R2'].apply(basename).str.replace(".fastq.gz", "_bismark_bt2.bam")
+filepath_df['A04a_bam_bismark_SE1trim'] = filepath_df['A04a_dir_bismark'] + filepath_df['A03a_fqgz_singletrim_R1'].apply(basename).str.replace(".fastq.gz", "_bismark_bt2.bam", regex = True)
+filepath_df['A04a_bam_bismark_SE2trim'] = filepath_df['A04a_dir_bismark'] + filepath_df['A03a_fqgz_singletrim_R2'].apply(basename).str.replace(".fastq.gz", "_bismark_bt2.bam", regex = True)
 
-filepath_df['A04a_bam_bismark_SE1unmap'] = filepath_df['A04a_dir_bismark'] + filepath_df['A04a_fqgz_unmap_R1'].str.replace(".fq.gz", "_bismark_bt2.bam")
-filepath_df['A04a_bam_bismark_SE2unmap'] = filepath_df['A04a_dir_bismark'] + filepath_df['A04a_fqgz_unmap_R2'].str.replace(".fq.gz", "_bismark_bt2.bam")
+filepath_df['A04a_bam_bismark_SE1unmap'] = filepath_df['A04a_dir_bismark'] + filepath_df['A04a_fqgz_unmap_R1'].str.replace(".fq.gz", "_bismark_bt2.bam", regex = True)
+filepath_df['A04a_bam_bismark_SE2unmap'] = filepath_df['A04a_dir_bismark'] + filepath_df['A04a_fqgz_unmap_R2'].str.replace(".fq.gz", "_bismark_bt2.bam", regex = True)
 
 # bismark logs
 filepath_df['A04a_txt_bismark_PE'] = filepath_df['A04a_dir_bismark'] +\
@@ -173,6 +173,9 @@ filepath_df['A05a_txt_star_SE1'] = filepath_df['A05a_dir_star'] + "SE1.Log.final
 filepath_df['A05a_txt_star_SE2'] = filepath_df['A05a_dir_star'] + "SE2.Log.final.out"
 
 # filtered outputs (A05c)
+filepath_df['A05c_bam_dedupe_PE'] = filepath_df['A05a_dir_star'] + "star_dedupe_pe.log"
+filepath_df['A05c_bam_dedupe_SE1'] = filepath_df['A05a_dir_star'] + "star_dedupe_se1.log"
+filepath_df['A05c_bam_dedupe_SE2'] = filepath_df['A05a_dir_star'] + "star_dedupe_se2.log"
 filepath_df['A05c_bam_starfilt_PE'] = filepath_df['A05a_dir_star'] + "PE.Final.bam"
 filepath_df['A05c_bam_starfilt_SE1'] = filepath_df['A05a_dir_star'] + "SE1.Final.bam"
 filepath_df['A05c_bam_starfilt_SE2'] = filepath_df['A05a_dir_star'] + "SE2.Final.bam"
@@ -192,6 +195,6 @@ filepath_df['A05e_txt_picard_SE2'] = filepath_df['A05a_dir_star'] + "picard_SE2"
 
 print(filepath_df.shape)
 filepath_df.to_csv(os.environ['metadat_well'])
-
+print("metadat_well created.")
 
 

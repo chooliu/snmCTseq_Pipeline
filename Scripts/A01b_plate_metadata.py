@@ -1,4 +1,6 @@
 
+
+
 # ==============================================================================
 # Scripts/A01b_plate_metadata.py
 # should parse list of lane-merged plates -->
@@ -17,7 +19,7 @@ import pandas as pd
 import os
 
 # if running interactively, check snmCT_parameters.env loaded or manually spec os.environ e.g.,
-# os.environ['projdir'] ="/u/project/cluo/chliu/Analyses/IGVF"; os.chdir(os.environ['projdir'])
+# os.environ['dir_proj'] ="/u/project/cluo/chliu/Analyses/IGVF"; os.chdir(os.environ['dir_proj'])
 # os.environ['ref_dir'] = "/u/project/cluo/chliu/Genomes/human_gencode_v40"
 # os.environ['dir_originalfastq'] = "/u/project/cluo/Shared_Datasets/IGVF/202208_Pilot/snmCT-seq/fastq/"
 # os.environ['metadat_plate'] = "Metadata/A01b_plate_metadata.csv"
@@ -33,7 +35,7 @@ print( filepaths_raw_fastq[0:4] )
 
 # data.frame of plate names ----------------------------------------------------
 
-# split before lane (L00[1-4]) to get unique plate names
+# split before lane (L00[1-8]) to get unique plate names
 plates_df = pd.DataFrame(
     {'plate' : pd.unique([filepath.split("/")[-1].split("_L")[0] for filepath in filepaths_raw_fastq])}
     ).sort_values('plate').reindex()
@@ -54,4 +56,6 @@ plates_df.index = plates_df.index.astype(int) + 1
 print( plates_df.head() )
 print ( plates_df.shape )
 plates_df.to_csv(os.environ['metadat_plate'])
+print("metadat_plate created.")
+
 

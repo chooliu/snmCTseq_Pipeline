@@ -1,11 +1,11 @@
 
 # #!/bin/bash
 # #$ -cwd
-# #$ -o sublogs/A05b_check_star.$JOB_ID
+# #$ -o sublogs/A05d_starfilt_check.$JOB_ID
 # #$ -j y
 # #$ -l h_rt=1:00:00,h_data=8G
-# #$ -N A05b_starcheck
-# #$ -hold_jid A05a_star
+# #$ -N A05d_starfilt_check
+# #$ -hold_jid A05c_starfilt
 
 
 
@@ -92,21 +92,21 @@ echo "-----------------------------------------------------------------"
 echo "A. printing number of missing .bam files missing (by batch)... "
 echo "-----------------------------------------------------------------"
 
-bam_star_pe=($(query_metadat "A05a_bam_star_PE"))
-bam_star_se1=($(query_metadat "A05a_bam_star_SE1"))
-bam_star_se2=($(query_metadat "A05a_bam_star_SE2"))
+bam_starfilt_pe=($(query_metadat "A05c_bam_starfilt_PE"))
+bam_starfilt_se1=($(query_metadat "A05c_bam_starfilt_SE1"))
+bam_starfilt_se2=($(query_metadat "A05c_bam_starfilt_SE2"))
 
 echo -e "\n\n\nchecking PE.Aligned.out.bam ----------------------------------------------------"
 echo -e "batchnum\tnum_missing"
-check_filepath_by_batch ${bam_star_pe[@]}
+check_filepath_by_batch ${bam_starfilt_pe[@]}
 
 echo -e "\n\n\nchecking SE1.Aligned.out.bam ---------------------------------------------------"
 echo -e "batchnum\tnum_missing"
-check_filepath_by_batch ${bam_star_se1[@]}
+check_filepath_by_batch ${bam_starfilt_se1[@]}
 
 echo -e "\n\n\nchecking SE2.Aligned.out.bam ---------------------------------------------------"
 echo -e "batchnum\tnum_missing"
-check_filepath_by_batch ${bam_star_se2[@]}
+check_filepath_by_batch ${bam_starfilt_se2[@]}
 
 echo -e "\n\n\nsuggest re-running and checking sublog output of above batches."
 
@@ -115,16 +115,17 @@ echo -e "\n\n-----------------------------------------------------------------"
 echo "B. checking log files for issues."
 echo -e "-----------------------------------------------------------------\n"
 
-
 echo "checking if 'completed' in sublogs/A05a_star* output."
 echo "if any filename is printed, the associated batch may have not completed mapping."
 
-grep -c "'A05a_star_mapping' completed" sublogs/A05a_star* | awk -F ":" '$2==0 {print $1}'
+grep -c "'A05c_star_filtering' completed" sublogs/A05c_star* | awk -F ":" '$2==0 {print $1}'
 
 
 
 
-echo -e "\n\n'A05b_starcheck' completed.\n\n"
+
+echo -e "\n\n'A05d_starfilt_check' completed.\n\n"
+
 
 
 echo "Job $JOB_ID ended on:   " `hostname -s`

@@ -4,9 +4,7 @@
 #$ -o sublogs/A00a_genome_dl_index.$JOB_ID
 #$ -j y
 #$ -N A00a_genome_dl_index
-#$ -l h_rt=12:00:00,h_data=8G,highp 
-#$ -pe shared 4
-
+#$ -l h_rt=4:00:00,h_data=8G
 
 
 
@@ -16,7 +14,9 @@ echo " "
 
 
 
-# environment init ------------------—------------------—---------------------
+
+
+# environment init ------------------—------------------—-----------------------
 
 . /u/local/Modules/default/init/modules.sh # <--
 module load anaconda3 # <--
@@ -26,19 +26,26 @@ export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
 
 
 
-# download/extract ref ------------------—------------------—-----------------
+# download/extract ref ------------------—------------------—-------------------
 
-cd $ref_dir
+cd ${ref_dir}
 
-# download gencode v40 (GRCh38.p13) .fa.gz & .gtf.gz
-# double check filepaths and hard-coded names here
+# download gencode v40 (GRCh38.p13) .fa.gz & .gtf.gz as example
+# double check filepaths and hard-coded names here 
 wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_40/GRCh38.primary_assembly.genome.fa.gz
 wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_40/gencode.v40.primary_assembly.annotation.gtf.gz
 
-# extract
-gunzip -c GRCh38.primary_assembly.genome.fa.gz > GRCh38.primary_assembly.genome.fa
-gunzip -c gencode.v40.primary_assembly.annotation.gtf.gz > gencode.v40.primary_assembly.annotation.gtf
+# extract compressed files as needed
+# put final, uncompressed names here into "snmCT_parameters.env" (as "ref_fasta" and "ref_gtf")
+for gzfile in *gz
+do
+    gunzip -c ${gzfile} > ${gzfile/.gz/}
+done
 
+# note: if ref_fasta doesn't have .fa or .fasta file format
+# bismark may have issues detecting it in ${ref_dir}
+# rename .fna --> .fa, for example
+# for f in *fna; do mv $f ${f/fna/fa}; done
 
 
 # note on working with Lambda phage or other spike-in (bisulfite conversion efficiency QC)
@@ -53,11 +60,11 @@ gunzip -c gencode.v40.primary_assembly.annotation.gtf.gz > gencode.v40.primary_a
 # index, chrom sizes -----------------—------------------—----------------------
 
 # extract bp length/chromosome
-samtools faidx $ref_fasta
+samtools faidx ${ref_fasta}
 cut -f 1-2 ${ref_fasta}.fai > chromsizes.tsv
 
-# .fa --> .dict 
-picard CreateSequenceDictionary -R ${ref_fasta/fa/dict}
+# .fa --> .dict
+picard CreateSequenceDictionary -R ${ref_fasta}
 
 
 

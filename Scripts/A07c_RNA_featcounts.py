@@ -6,7 +6,7 @@
 import pandas as pd
 
 import os
-filepath_wellmetadat = os.environ['metadat_well']
+filepath_wellmetadat = os.environ['metadat_plate']
 metadata_well = pd.read_csv(filepath_wellmetadat)
 
 def parse_featurecounts(filepath):
