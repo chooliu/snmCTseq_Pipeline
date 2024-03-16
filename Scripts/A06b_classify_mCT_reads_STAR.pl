@@ -3,7 +3,7 @@
 use strict;
 
 
-# A05c_classify_mCT_reads_STAR.pl, v0.2 =====================================================
+# A06b_classify_mCT_reads_STAR.pl, v0.2 =====================================================
 # based loosely on original perl script written by Dr. Chongyuan Luo (@luogenomics)
 # modifications by Choo Liu (@chooliu):
 # - readability/documentation
@@ -13,7 +13,7 @@ use strict;
 # outputs: - "_annotations" .tsv recording each alignment's:
 #             number of cytosines, mC/C fraction, and call (DNA, RNA, ambiguous)
 #             this annotation file is subsequently appended to the. bam to keep RNA reads
-# typical usage: perl A05c_classify_mCT_reads_STAR.pl alignments.sam
+# typical usage: perl A06b_classify_mCT_reads_STAR.pl alignments.sam
 # =====================================================================================
 
 # reading in .sam file

@@ -5,7 +5,7 @@
 #$ -j y
 #$ -l h_rt=8:00:00,h_data=8G
 #$ -N A03a_trim
-#$ -t 1-256
+#$ -t 1-512
 #$ -hold_jid A02a_demultip
 
 
@@ -86,6 +86,10 @@ do
     echo -e "$row\t${wellprefix[$row]}"
 done
 
+if [[ ! -s fastq_trimmed ]]
+then
+    mkdir fastq_trimmed
+fi
 
 # trim each well in batch (could be empty wells w/o demultip output,
 # but since by well doesn't cause catastrophic problems)
@@ -96,18 +100,27 @@ do
 
     # check for existing trimming output
     # if well already processed, skip; if file doesn't exist, run fastp
-    if [[ -s ${r2singletrim[$row]} && -s ${jsonout[$row]} && "${overwrite_existing}" != true ]]
+    if [[ -s ${r1paired[$row]} && -s ${r2paired[$row]} &&
+          -s ${r1singletrim[$row]} && -s ${r2singletrim[$row]} && \
+          -s ${jsonout[$row]} ]]
+    then
+        echo -e "output files for '${wellprefix[$row]}' already exist."
+        if [[ "$overwrite_existing" == "true" ]]
         then
-            echo -e "output files for '${wellprefix[$row]}' already exist and overwrite_existing=false. skipping.'"
+            echo "overwrite_existing=true. trimming anyway."
         else
-            fastp -i ${r1in[$row]} -I ${r2in[$row]} \
-            -o ${r1paired[$row]} -O ${r2paired[$row]} \
-            --unpaired1 ${r1singletrim[$row]} --unpaired2 ${r2singletrim[$row]} \
-            -h fastq_trimmed/${wellprefix[$row]}.html -j ${jsonout[$row]} -R ${wellprefix[$row]} \
-            --adapter_fasta=Scripts/A03a_adapter_sequences.fa \
-            -f 17 -t 10 -F 15 -T 10 -l 30 \
-            --cut_right -q 20 -u 50 -y -Y 15 -x
+            echo "overwrite_existing=false. skipping."
+            continue
+        fi
     fi
+    
+    fastp -i ${r1in[$row]} -I ${r2in[$row]} \
+        -o ${r1paired[$row]} -O ${r2paired[$row]} \
+        --unpaired1 ${r1singletrim[$row]} --unpaired2 ${r2singletrim[$row]} \
+        -h fastq_trimmed/${wellprefix[$row]}.html -j ${jsonout[$row]} -R ${wellprefix[$row]} \
+        --adapter_fasta=Scripts/A03a_adapter_sequences.fa \
+        -f 17 -t 10 -F 15 -T 10 -l 30 \
+        --cut_right -q 20 -u 50 -y -Y 15 -x
     
 done
 

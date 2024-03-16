@@ -34,7 +34,7 @@ conda env create -f Documentation/snmCTseq.yml
 \
 \* Alternatively, if you can access your server via Juypter, run each `.ipynb` in the `Notebooks` folder sequentially for organized script editing & access to extra in-line comments (also viewable in this repo's [Notebooks folder on Github](./Notebooks)).
 
-4. Submit each submission scripts (`.sub` extension) in order:  `A00a`, `A00b`, `A00c`, `A01a`, `A01b`, ... I usually `qsub` all `A00*` scripts at once, all `A01*` at once, etc.
+4. Submit each submission scripts (`.sub` extension) in order:  `A00a`, `A00b`, `A00c`, `A01a`, `A01b`, ... I usually `qsub` all `A00*` scripts at once, all `A01*` at once, etc. For convenience, the full list of submission commands is listed at [Documentation/submission_helper.txt](./Documentation/submission_helper.txt)
 
 
 
@@ -45,6 +45,7 @@ conda env create -f Documentation/snmCTseq.yml
 *  [Detailed Overview](./Documentation/detailed_overview.md) (rationale for steps, FAQs, common pitfalls)
 * [Notebooks](./Notebooks)
 * [Revision History](./Documentation/revision_history.md)
+* [list of qsub commands](./Documentation/submission_helper.txt)
 
 ### Related Pipelines
 

@@ -1,14 +1,14 @@
 
 # A07b_RNA_maprate.py ==========================================================
 
-# setup ------------------—------------------—----------------------------------
+# setup ------------------------------------------------------------------------
 
+import os
 import glob
 import itertools
 import re
 import pandas as pd
 
-import os
 filepath_wellmetadat = os.environ['metadat_well']
 metadata_well = pd.read_csv(filepath_wellmetadat)
 
@@ -67,28 +67,103 @@ def parse_star_report(filepath):
     
 
 
-# gather metadata ------------------—------------------—------------------------
+# gather metadata --------------------------------------------------------------
 
-# paired-end
-list_star_pe = [parse_star_report(file) for file in metadata_well['A05a_txt_star_PE']]
-df_star_pe = pd.DataFrame(list_star_pe,
-                          index= metadata_well['wellprefix'])
-del(list_star_pe)
-df_star_pe.to_csv("Metadata/A07b_RNA_maprate_PE.tsv", sep='\t')
-del(df_star_pe)
 
-# single-end, r1
-list_star_SE1 = [parse_star_report(file) for file in metadata_well['A05a_txt_star_SE1']]
+
+# paired-end -------------------------------------------------------------------
+
+print("\n\nPE logs...")
+filelist = metadata_well['A06a_txt_star_PE']
+boolean_fileexists = [os.path.exists(f) for f in filelist]
+list_star_PE = [parse_star_report(f) for f in filelist[boolean_fileexists]]
+df_star_PE = pd.DataFrame(list_star_PE,
+                           index = metadata_well['wellprefix'][boolean_fileexists])
+
+# percent files missing
+print("number of target files: " + str(len(filelist)))
+print("fraction files missing: ")
+print(round(1 - sum(boolean_fileexists)/len(boolean_fileexists), 3))
+boolean_filemissing = [not f for f in boolean_fileexists]
+if sum(boolean_filemissing) != 0:
+    print("missing " + str(sum(boolean_filemissing)) + " files:")
+    print(filelist[boolean_filemissing].to_string())
+
+# column QC
+print("number of NAs per column:")
+print(df_star_PE.isna().sum().to_string())
+
+print("number of duplicated wells:")
+ndupe = df_star_PE.index.duplicated().sum()
+print(ndupe)
+
+# final export
+print("exporting Metadata/A07b_RNA_maprate_PE.tsv of shape: {}".format(*df_star_PE.shape))
+df_star_PE.to_csv("Metadata/A07b_RNA_maprate_PE.tsv", sep = '\t')
+print("\n\n")
+
+
+
+# single-end, r1 ---------------------------------------------------------------
+
+print("\n\nSE1 logs...")
+filelist = metadata_well['A06a_txt_star_SE1']
+boolean_fileexists = [os.path.exists(f) for f in filelist]
+list_star_SE1 = [parse_star_report(f) for f in filelist[boolean_fileexists]]
 df_star_SE1 = pd.DataFrame(list_star_SE1,
-                          index= metadata_well['wellprefix'])
-del(list_star_SE1)
-df_star_SE1.to_csv("Metadata/A07b_RNA_maprate_SE1.tsv", sep='\t')
-del(df_star_SE1)
+                           index = metadata_well['wellprefix'][boolean_fileexists])
 
-# single-end, r2
-list_star_SE2 = [parse_star_report(file) for file in metadata_well['A05a_txt_star_SE2']]
+# percent files missing
+print("number of target files: " + str(len(filelist)))
+print("fraction files missing: ")
+print(round(1 - sum(boolean_fileexists)/len(boolean_fileexists), 3))
+boolean_filemissing = [not f for f in boolean_fileexists]
+if sum(boolean_filemissing) != 0:
+    print("missing " + str(sum(boolean_filemissing)) + " files:")
+    print(filelist[boolean_filemissing].to_string())
+
+# column QC
+print("number of NAs per column:")
+print(df_star_SE1.isna().sum().to_string())
+
+print("number of duplicated wells:")
+ndupe = df_star_SE1.index.duplicated().sum()
+print(ndupe)
+
+# final export
+print("exporting Metadata/A07b_RNA_maprate_SE1.tsv of shape: {}".format(*df_star_SE1.shape))
+df_star_SE1.to_csv("Metadata/A07b_RNA_maprate_SE1.tsv", sep = '\t')
+print("\n\n")
+
+
+
+# single-end, r2 ---------------------------------------------------------------
+
+print("\n\nSE2 logs...")
+filelist = metadata_well['A06a_txt_star_SE2']
+boolean_fileexists = [os.path.exists(f) for f in filelist]
+list_star_SE2 = [parse_star_report(f) for f in filelist[boolean_fileexists]]
 df_star_SE2 = pd.DataFrame(list_star_SE2,
-                          index= metadata_well['wellprefix'])
-del(list_star_SE2)
-df_star_SE2.to_csv("Metadata/A07b_RNA_maprate_SE2.tsv", sep='\t')
-del(df_star_SE2)
+                                  index = metadata_well['wellprefix'][boolean_fileexists])
+
+# percent files missing
+print("number of target files: " + str(len(filelist)))
+print("fraction files missing: ")
+print(round(1 - sum(boolean_fileexists)/len(boolean_fileexists), 3))
+boolean_filemissing = [not f for f in boolean_fileexists]
+if sum(boolean_filemissing) != 0:
+    print("missing " + str(sum(boolean_filemissing)) + " files:")
+    print(filelist[boolean_filemissing].to_string())
+
+# column QC
+print("number of NAs per column:")
+print(df_star_SE2.isna().sum().to_string())
+
+print("number of duplicated wells:")
+ndupe = df_star_SE2.index.duplicated().sum()
+print(ndupe)
+
+# final export
+print("exporting Metadata/A07b_RNA_maprate_SE2.tsv of shape: {}".format(*df_star_SE2.shape))
+df_star_SE2.to_csv("Metadata/A07b_RNA_maprate_SE2.tsv", sep = '\t')
+print("\n\n")

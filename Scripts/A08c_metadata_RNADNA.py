@@ -1,15 +1,15 @@
 
 # A08c_metadata_RNADNA.py: compile A08a & A08b
-# final metadata file typically used for QC
+# this final metadata file is what's typically used for QC
 
-# setup ------------------—------------------—----------------------------------
+# setup ------------------------------------------------------------------------
 
 import glob
 import pandas as pd
 
 
 
-# read and merge ------------------—------------------—-------------------------
+# read and merge ---------------------------------------------------------------
 
 def read_tbl_wrapper(filepath, prefix = ""):
     return(pd.read_csv(filepath, delimiter="\t", index_col = 0).add_prefix(prefix))
@@ -47,7 +47,7 @@ metadata_joined['DNA_RNAAdj_ReadMappingRate'] = \
 
 
 
-# final DNA + RNA metadata ------------------—------------------—---------------
+# final DNA + RNA metadata -----------------------------------------------------
 
 metadata_joined.to_csv("Metadata/A08c_metadata_RNADNA.tsv", sep = "\t")
 

@@ -16,7 +16,7 @@ echo " "
 
 
 
-# environment init ------------------—------------------—-----------------------
+# environment init -------------------------------------------------------------
 
 . /u/local/Modules/default/init/modules.sh # <--
 module load anaconda3 # <--
@@ -26,14 +26,14 @@ export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
 
 
 
-# run metadata compilation ------------------—------------------—---------------
+# run metadata compilation -----------------------------------------------------
 
 # because the two scripts are so fast,
 # violating tidy convention and just running both here
 # (suggest running these in interactive mode anyway)
 
-python Scripts/A01b_plate_metadata.py
-python Scripts/A01c_well_filepaths.py
+python Scripts/A01b_plate_metadata.py # <-- * may need to be customized!!
+python Scripts/A01c_well_filepaths.py # <--
 
 
 

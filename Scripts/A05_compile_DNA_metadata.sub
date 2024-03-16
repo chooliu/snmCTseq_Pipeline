@@ -1,12 +1,12 @@
 
 #!/bin/bash
 #$ -cwd
-#$ -o sublogs/A06_compile_DNA.$JOB_ID.$TASK_ID
+#$ -o sublogs/A05_compile_DNA.$JOB_ID.$TASK_ID
 #$ -j y
 #$ -l h_rt=6:00:00,h_data=12G
-#$ -N A06_compile_DNA
+#$ -N A05_compile_DNA
 #$ -t 1-6
-
+#$ -hold_jid A04a_bismark,A04b_filter_mC,A04c_make_allc,A04d_mCfracs,A04f_global_mC_stats,A04g_coverage_DNA
 
 
 
@@ -16,7 +16,7 @@ echo " "
 
 
 
-# environment init ------------------—------------------—-----------------------
+# environment init -------------------------------------------------------------
 
 . /u/local/Modules/default/init/modules.sh # <--
 module load anaconda3 # <--
@@ -26,7 +26,7 @@ export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
 
 
 
-# run each helper script (A06*) ------------------—------------------—----------
+# run each helper script (A05*) ------------------------------------------------
 
 # note: in practice these can each be submitted interactively/as its own task,
 # as some of these scripts should be much lower resource than others;
@@ -37,33 +37,33 @@ echo "metadata script # $SGE_TASK_ID running:"
 case $SGE_TASK_ID in
 
   1)
-    echo "python Scripts/A06a_trimming.py"
-    python Scripts/A06a_trimming.py
+    echo "python Scripts/A05a_trimming.py"
+    python Scripts/A05a_trimming.py
     ;;
 
   2)
-    echo "python Scripts/A06b_DNA_maprate.py"
-    python Scripts/A06b_DNA_maprate.py
+    echo "python Scripts/A05b_DNA_maprate.py"
+    python Scripts/A05b_DNA_maprate.py
     ;;
 
   3)
-    echo "python Scripts/A06c_DNA_dedupe.py"
-    python Scripts/A06c_DNA_dedupe.py
+    echo "python Scripts/A05c_DNA_dedupe.py"
+    python Scripts/A05c_DNA_dedupe.py
     ;;
 
   4)
-    echo "python Scripts/A06d_DNA_mCfracs.py"
-    python Scripts/A06d_DNA_mCfracs.py
+    echo "python Scripts/A05d_DNA_global_mCfracs.py"
+    python Scripts/A05d_DNA_global_mCfracs.py
     ;;
 
   5)
-    echo "python Scripts/A06e_DNA_samtools.py"
-    python Scripts/A06e_DNA_samtools.py
+    echo "python Scripts/A05e_DNA_samtools.py"
+    python Scripts/A05e_DNA_samtools.py
     ;;
 
   6)
-    echo "python Scripts/A06f_DNA_cov.py"
-    python Scripts/A06f_DNA_cov.py
+    echo "python Scripts/A05f_DNA_cov.py"
+    python Scripts/A05f_DNA_cov.py
     ;;
     
   *)
@@ -71,7 +71,7 @@ case $SGE_TASK_ID in
 esac
 
 
-echo "completed 'A06_compile_DNA_metadata.'"
+echo "completed 'A05_compile_DNA_metadata.'"
 
 echo " "
 echo "Job $JOB_ID.$SGE_TASK_ID ended on:   " `hostname -s`

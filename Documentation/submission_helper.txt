@@ -1,0 +1,58 @@
+# if you have not run this pipeline before, i strongly suggest going step-by-step
+# through the Notebooks/*.ipynb and reading Documentation/detailed_overview.md.
+
+# for more experienced users,
+# you can: - edit "snmCT_parameters.env"
+#          - find and replace "Nplates" and "Nbatches" below
+#            with the experiment's actual numeric values, where by default, Nbatches = 16*Nplates
+#            (by specifying -t externally, it overwrites the respective 32 and 512 values hard-coded in the .sub files)
+#          - run all the resulting .qsub commands, assuming using Hoffman2/SGE schedulers
+#            (recommend submitting all of A00* at a time, A01* at a time, ...,
+#             although could qsub all as file dependency structure is embedded in scripts)
+#          - also, may be helpful to run certain steps (‡) interactively for troubleshooting 
+#            
+
+# * = job array based on "platenum"
+# † = job array based on "batchnum" (two rows at a time)
+# ‡ fast enough to run interactively
+
+
+
+
+qsub               Scripts/A00a_genome_dl_index.sub  # ‡
+qsub               Scripts/A00b_genome_prep_bismark.sub
+qsub               Scripts/A00c_genome_prep_star.sub
+qsub               Scripts/A00d_gtf_annotations_bed.sub # ‡
+
+qsub -t 1-Nplates  Scripts/A01a_merge_lanes.sub # *
+qsub               Scripts/A01b_plate_metadata.sub # ‡
+
+
+qsub -t 1-Nplates  Scripts/A02a_demultiplex_fastq.sub # *
+qsub               Scripts/A02b_check_demultip.sub # ‡
+qsub               Scripts/A02c_fastqc_demultip_fastq.sub
+
+qsub -t 1-Nbatches Scripts/A03a_trimming_fastp.sub # †
+qsub               Scripts/A03b_check_trimmed.sub # ‡
+qsub               Scripts/A03c_fastqc_trimmed.sub
+
+qsub -t 1-Nbatches Scripts/A04a_bismark_mapping.sub # †
+qsub -t 1-Nbatches Scripts/A04b_filter_mC_align.sub # †
+qsub -t 1-Nbatches Scripts/A04c_make_allc.sub  # †
+qsub               Scripts/A04d_check_bismark.sub # ‡
+qsub -t 1-Nplates  Scripts/A04e_allc_to_mcds.sub  # *
+qsub -t 1-Nbatches Scripts/A04f_global_mC_stats.sub  # †
+qsub -t 1-Nbatches Scripts/A04g_samstat_coverage_DNA.sub # †
+
+
+qsub               Scripts/A05_compile_DNA_metadata.sub # ‡
+
+qsub -t 1-Nbatches Scripts/A06a_star_mapping.sub # †
+qsub -t 1-Nbatches Scripts/A06b_star_filtering.sub # †
+qsub               Scripts/A06c_check_star.sub
+qsub -t 1-Nplates  Scripts/A06d_featurecounts.sub   # *
+qsub -t 1-Nbatches Scripts/A06e_star_bam_stats.sub # †
+
+qsub               Scripts/A07_compile_RNA_metadata.sub # ‡
+
+qsub               Scripts/A08_compile_final_metadata.sub # ‡

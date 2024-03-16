@@ -3,10 +3,10 @@
 #$ -cwd
 #$ -o sublogs/A02a_demultiplex.$JOB_ID.$TASK_ID
 #$ -j y
-#$ -l h_rt=12:00:00,h_data=24G
-#$ -t 1-16
+#$ -l h_rt=18:00:00,h_data=24G,highp
+#$ -t 1-32
 #$ -N A02a_demultip
-#$ -hold_jid A01b_plate_metadata
+#$ -hold_jid_ad A01a_merge_lanes
 
 
 
@@ -30,16 +30,19 @@ export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
 
 # extract target filepaths -----------------------------------------------------
 
-platename=$(awk -v linenum=$SGE_TASK_ID -F ',' '$1 == linenum' ${metadat_plate} | cut -d , -f 2)
+platename=$(awk -v linenum=$SGE_TASK_ID -F ',' '$1 == linenum' $metadat_plate | cut -d , -f 2)
 
 r1file="fastq_raw/${platename}_R1.fastq.gz"
 r2file="fastq_raw/${platename}_R2.fastq.gz"
 
-mkdir fastq_demultip
-
 
 
 # apply perl script for each of two index files --------------------------------
+
+if [[ ! -s fastq_demultip ]]
+then
+    mkdir fastq_demultip
+fi
 
 for index_file in {1..2}
 do
@@ -49,14 +52,11 @@ do
 done
 
 
-
 echo -e "\n\n'A02a_demultip' completed.\n\n"
 
 
 
 
-
-echo " "
 echo "Job $JOB_ID.$SGE_TASK_ID ended on:   " `hostname -s`
 echo "Job $JOB_ID.$SGE_TASK_ID ended on:   " `date `
-echo " "
+

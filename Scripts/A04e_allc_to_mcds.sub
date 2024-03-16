@@ -1,0 +1,144 @@
+#$ -cwd
+#$ -o sublogs/A04e_makemcds.$JOB_ID.$TASK_ID
+#$ -j y
+#$ -l h_rt=24:00:00,h_data=8G
+#$ -N A04e_makemcds
+#$ -t 1-32
+#$ -pe shared 8
+#$ -hold_jid A04c_make_allc
+
+
+
+echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `hostname -s`
+echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `date `
+echo " "
+
+
+
+
+# environment init -------------------------------------------------------------
+
+. /u/local/Modules/default/init/modules.sh # <--
+module load anaconda3 # <--
+conda activate snmCTseq # <--
+
+export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
+
+
+
+# extract target filepaths -----------------------------------------------------
+
+# helper functions
+query_metadat () {
+  awk -F',' -v targetcol="$1" \
+      'NR==1 {
+                for (i=1;i<=NF;i++) {
+                    if ($i==targetcol) {assayout=i; break} }
+                print $assayout
+              }
+      NR>1 {
+                print $assayout
+            }' ${metadat_well}
+}
+
+# extract target wells, print values for log
+platenum=($(query_metadat "platenum"))
+nwells=${#platenum[@]}
+  
+target_well_rows=()
+for ((row=1; row<=nwells; row++))
+do
+    if [[ "${platenum[$row]}" == "${SGE_TASK_ID}" ]]
+    then
+        target_well_rows+=($row)
+    fi
+done
+
+
+
+# filepaths associated with target rows in well-level metadata -----------------
+# (generally not customizeable because output names set by bismark)
+
+wellprefix=($(query_metadat "wellprefix"))
+
+allcgz=($(query_metadat "A04c_allc_final"))
+allctbi=($(query_metadat "A04c_allctbi_final"))
+
+
+# print target files -----------------------------------------------------------
+
+echo "batch number: $SGE_TASK_ID"
+echo "processing the following rows in well metadata file ($metadat_well):"
+
+for row in ${target_well_rows[@]}
+do
+    echo -e "${row}\t${wellprefix[$row]}"
+done
+
+
+
+# make .tsv of allcs -----------------------------------------------------------
+# will appear as Metadata/A04e_allclist_*
+
+tsv_target_allcs=Metadata/A04e_allclist_${SGE_TASK_ID}.tsv
+if [[ -s ${tsv_target_allcs} ]]
+then
+    rm ${tsv_target_allcs}
+fi
+
+for row in ${target_well_rows[@]}
+do
+    if [[ -s ${allcgz[$row]} && -s ${allctbi[$row]} ]]
+    then
+        echo -e "${wellprefix[$row]}\t${allcgz[$row]}"  >> ${tsv_target_allcs}
+    fi
+done
+
+echo -e "\n.allc files included:\n"
+wc -l ${tsv_target_allcs}
+
+echo -e "\n\n"
+
+
+
+# run mcds generation ----------------------------------------------------------
+
+if [[ ! -s mcds ]]
+then
+    mkdir mcds
+fi
+
+# .allc files --> aggregated into mcds regions
+# note: the mcds is not a single file, but more like a directory with binary compression
+allcools generate-dataset  \
+    --allc_table ${tsv_target_allcs} \
+    --output_path mcds/${SGE_TASK_ID}.mcds \
+    --chrom_size_path ${ref_chromsizes} \
+    --obs_dim cell \
+    --cpu 8 \
+    --chunk_size 2000 \
+    --regions chrom100k 100000 \
+    --regions genebody ${ref_genebody} \
+    --quantifiers chrom100k count CGN,CHN \
+    --quantifiers genebody count CGN,CHN
+
+# not standard, but but consider adding:
+# * 5kb sliding windows (see mcad / 5kb tutorial for allcools)
+#    --regions chrom5k 5000 \
+#    --quantifiers chrom5k hypo-score CHN,CGN cutoff=0.9 \
+# * genebody +/- 2kb (historically, include promoter region + increase cov)
+#    --regions geneslop2k $ref_geneslop2k \
+#    --quantifiers geneslop2k count CGN,CHN \ 
+
+
+
+
+
+echo -e "\n\n'A04e_allc2mcds' completed.\n\n"
+
+
+
+
+
+echo "Job $JOB_ID.$SGE_TASK_ID ended on:    " `hostname -s`
+echo "Job $JOB_ID.$SGE_TASK_ID ended on:    " `date `

@@ -41,7 +41,10 @@ overwrite_random_wells=false # <-- overwrite target list of wells (false by defa
 # warning: will overwrite this .txt if already exists,
 # to avoid re-running more files than expected / the same files multiple times
 
-mkdir qc_trimmed
+if [[ ! -s qc_trimmed ]]
+then
+    mkdir qc_trimmed
+fi
 
 if [[ -e ${wells_to_run} && "${overwrite_random_wells}" == true ]]
     then
@@ -82,7 +85,7 @@ while read r1file;
     do
         wellprefix=$(echo $(basename ${r1file}) | awk -F"_indexed" '{print $1}')
         echo $(ls fastq_trimmed/${wellprefix})
-        fastqc -t 4 fastq_trimmed/${wellprefix}* -o qc_trimmed/
+        fastqc -t 4 fastq_trimmed/${wellprefix}*fastq.gz -o qc_trimmed/
     done < ${wells_to_run}
 
 # compile across wells

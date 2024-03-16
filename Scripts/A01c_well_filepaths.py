@@ -14,10 +14,19 @@ import pandas as pd
 import numpy as np
 import os
 
-# if running interactively, check snmCT_parameters.env loaded or manually spec os.environ e.g.,
-# os.environ['dir_proj'] ="/u/project/cluo/chliu/Analyses/IGVF"; os.chdir(os.environ['dir_proj'])
-# os.environ['metadat_plate'] = "Metadata/A01b_plate_metadata.csv"
-# os.environ['metadat_well'] = "Metadata/A01c_well_filepath.csv"
+# if running interactively, need to load some lines from snmCT_parameters.env
+# or manually spec os.environ -- e.g., via the below loop
+# (use absolute versus relative path of parameters.env file if below not working!)
+envvar_needed = ['dir_proj', 'dir_originalfastq', 'metadat_plate', 'metadat_well']
+try:
+    os.environ['metadat_well']
+except KeyError:
+    envspec = pd.read_csv("snmCT_parameters.env", sep = "=", comment="#", header = None
+               ).set_axis(['varname', 'varpath'], axis = 1
+               ).query('varname in @envvar_needed')
+    for index, row in envspec.iterrows():
+        os.environ[row["varname"]] = row["varpath"]
+os.chdir(os.environ['dir_proj'])
 
 
 
@@ -51,7 +60,7 @@ filepath_df = pd.merge(filepath_df, plates_df, how = "left", on = "plate")
 #   pulled by the sub scripts for the A04a script only
 
 nwellstot = filepath_df.shape[0]
-wells_per_batch = 24
+wells_per_batch = 24 # <-- can be changed
 filepath_df['batchnum'] =\
     pd.Series(range(0, np.ceil(nwellstot / wells_per_batch).astype(int))
              ).repeat(wells_per_batch)[0:nwellstot].reset_index(drop = True) + 1
@@ -115,8 +124,8 @@ filepath_df['A04a_dir_bismark'] + filepath_df['A03a_fqgz_paired_R2'].apply(basen
 filepath_df['A04a_bam_bismark_SE1trim'] = filepath_df['A04a_dir_bismark'] + filepath_df['A03a_fqgz_singletrim_R1'].apply(basename).str.replace(".fastq.gz", "_bismark_bt2.bam", regex = True)
 filepath_df['A04a_bam_bismark_SE2trim'] = filepath_df['A04a_dir_bismark'] + filepath_df['A03a_fqgz_singletrim_R2'].apply(basename).str.replace(".fastq.gz", "_bismark_bt2.bam", regex = True)
 
-filepath_df['A04a_bam_bismark_SE1unmap'] = filepath_df['A04a_dir_bismark'] + filepath_df['A04a_fqgz_unmap_R1'].str.replace(".fq.gz", "_bismark_bt2.bam", regex = True)
-filepath_df['A04a_bam_bismark_SE2unmap'] = filepath_df['A04a_dir_bismark'] + filepath_df['A04a_fqgz_unmap_R2'].str.replace(".fq.gz", "_bismark_bt2.bam", regex = True)
+filepath_df['A04a_bam_bismark_SE1unmap'] = filepath_df['A04a_fqgz_unmap_R1'].str.replace(".fq.gz", "_bismark_bt2.bam", regex = True)
+filepath_df['A04a_bam_bismark_SE2unmap'] = filepath_df['A04a_fqgz_unmap_R2'].str.replace(".fq.gz", "_bismark_bt2.bam", regex = True)
 
 # bismark logs
 filepath_df['A04a_txt_bismark_PE'] = filepath_df['A04a_dir_bismark'] +\
@@ -131,21 +140,25 @@ filepath_df['A04a_txt_bismark_SE2trim'] = filepath_df['A04a_dir_bismark'] +\
 filepath_df['wellprefix'] + "_singletrim_R2_bismark_bt2_SE_report.txt"
 
 # (ii) picard de-duplication
-filepath_df['A04a_bam_dedupe_PE'] = filepath_df['A04a_dir_bismark'] + "PE_dedupe.bam"
-filepath_df['A04a_bam_merge_SE'] = filepath_df['A04a_dir_bismark'] + "SE_merge.bam"
-filepath_df['A04a_bam_mergesort_SE'] = filepath_df['A04a_dir_bismark'] + "SE_mergesort.bam"
-filepath_df['A04a_bam_mergesortdedupe_SE'] = filepath_df['A04a_dir_bismark'] + "SE_mergesortdedupe.bam"
+filepath_df['A04b_bam_dedupe_PE'] = filepath_df['A04a_dir_bismark'] + "PE_dedupe.bam"
+filepath_df['A04b_bam_merge_SE'] = filepath_df['A04a_dir_bismark'] + "SE_merge.bam"
+filepath_df['A04b_bam_mergesort_SE'] = filepath_df['A04a_dir_bismark'] + "SE_mergesort.bam"
+filepath_df['A04b_bam_mergesortdedupe_SE'] = filepath_df['A04a_dir_bismark'] + "SE_mergesortdedupe.bam"
 
-filepath_df['A04a_txt_picard_PE'] = filepath_df['A04a_dir_bismark'] + "picard_PE.log"
-filepath_df['A04a_txt_picard_SE'] = filepath_df['A04a_dir_bismark'] + "picard_SE.log"
+filepath_df['A04b_txt_picard_PE'] = filepath_df['A04a_dir_bismark'] + "picard_PE.log"
+filepath_df['A04b_txt_picard_SE'] = filepath_df['A04a_dir_bismark'] + "picard_SE.log"
 
 # (iii) read-level filtering
-filepath_df['A04a_sam_dedupeq10_PE'] = filepath_df['A04a_dir_bismark'] + "PE.dedupe_q10.sam"
-filepath_df['A04a_sam_dedupeq10_SE'] = filepath_df['A04a_dir_bismark'] + "SE.dedupe_q10.sam"
+filepath_df['A04b_sam_dedupeq10_PE'] = filepath_df['A04a_dir_bismark'] + "PE.dedupe_q10.sam"
+filepath_df['A04b_sam_dedupeq10_SE'] = filepath_df['A04a_dir_bismark'] + "SE.dedupe_q10.sam"
 
-filepath_df['A04a_allc_final'] = filepath_df['A04a_dir_bismark'] + "allc.tsv.gz"
-filepath_df['A04a_allctbi_final'] = filepath_df['A04a_dir_bismark'] + "allc.tsv.gz.tbi"
-filepath_df['A04a_txt_allccheck'] = filepath_df['A04a_dir_bismark'] + "allc_check.txt"
+filepath_df['A04b_bamfinal_PE'] = filepath_df['A04a_dir_bismark'] + "PE_final.bam"
+filepath_df['A04b_bamfinal_SE'] = filepath_df['A04a_dir_bismark'] + "SE_final.bam"
+
+# (iii) alignments to allc
+filepath_df['A04c_allc_final'] = filepath_df['A04a_dir_bismark'] + "allc.tsv.gz"
+filepath_df['A04c_allctbi_final'] = filepath_df['A04a_dir_bismark'] + "allc.tsv.gz.tbi"
+filepath_df['A04c_txt_allccheck'] = filepath_df['A04a_dir_bismark'] + "allc_check.txt"
 
 # sam stats for coverage, final counts
 filepath_df['A04e_txt_samstats_PE'] = filepath_df['A04a_dir_bismark'] + "samstats_PE"
@@ -156,38 +169,38 @@ filepath_df['A04f_txt_covnsites'] = filepath_df['A04a_dir_bismark'] + "nbases_co
 
 
 
-# A05: STAR mapping ------------------------------------------------------------
+# A06: STAR mapping ------------------------------------------------------------
 
-filepath_df['A05a_dir_star'] = "mapping_star/" + filepath_df['wellprefix'] + "/"
+filepath_df['A06a_dir_star'] = "mapping_star/" + filepath_df['wellprefix'] + "/"
 
-# paired-end mapping outputs (A05a)
-filepath_df['A05a_bam_star_PE'] = filepath_df['A05a_dir_star'] + "PE.Aligned.out.bam"
-filepath_df['A05a_bam_star_SE1'] = filepath_df['A05a_dir_star'] + "SE1.Aligned.out.bam"
-filepath_df['A05a_bam_star_SE2'] = filepath_df['A05a_dir_star'] + "SE2.Aligned.out.bam"
+# paired-end mapping outputs (A06a)
+filepath_df['A06a_bam_star_PE'] = filepath_df['A06a_dir_star'] + "PE.Aligned.out.bam"
+filepath_df['A06a_bam_star_SE1'] = filepath_df['A06a_dir_star'] + "SE1.Aligned.out.bam"
+filepath_df['A06a_bam_star_SE2'] = filepath_df['A06a_dir_star'] + "SE2.Aligned.out.bam"
 
-filepath_df['A05a_fq_unmap_R1'] = filepath_df['A05a_dir_star'] + "PE.Unmapped.out.mate1"
-filepath_df['A05a_fq_unmap_R2'] = filepath_df['A05a_dir_star'] + "PE.Unmapped.out.mate2"
+filepath_df['A06a_fq_unmap_R1'] = filepath_df['A06a_dir_star'] + "PE.Unmapped.out.mate1"
+filepath_df['A06a_fq_unmap_R2'] = filepath_df['A06a_dir_star'] + "PE.Unmapped.out.mate2"
 
-filepath_df['A05a_txt_star_PE'] = filepath_df['A05a_dir_star'] + "PE.Log.final.out"
-filepath_df['A05a_txt_star_SE1'] = filepath_df['A05a_dir_star'] + "SE1.Log.final.out"
-filepath_df['A05a_txt_star_SE2'] = filepath_df['A05a_dir_star'] + "SE2.Log.final.out"
+filepath_df['A06a_txt_star_PE'] = filepath_df['A06a_dir_star'] + "PE.Log.final.out"
+filepath_df['A06a_txt_star_SE1'] = filepath_df['A06a_dir_star'] + "SE1.Log.final.out"
+filepath_df['A06a_txt_star_SE2'] = filepath_df['A06a_dir_star'] + "SE2.Log.final.out"
 
-# filtered outputs (A05c)
-filepath_df['A05c_bam_dedupe_PE'] = filepath_df['A05a_dir_star'] + "star_dedupe_pe.log"
-filepath_df['A05c_bam_dedupe_SE1'] = filepath_df['A05a_dir_star'] + "star_dedupe_se1.log"
-filepath_df['A05c_bam_dedupe_SE2'] = filepath_df['A05a_dir_star'] + "star_dedupe_se2.log"
-filepath_df['A05c_bam_starfilt_PE'] = filepath_df['A05a_dir_star'] + "PE.Final.bam"
-filepath_df['A05c_bam_starfilt_SE1'] = filepath_df['A05a_dir_star'] + "SE1.Final.bam"
-filepath_df['A05c_bam_starfilt_SE2'] = filepath_df['A05a_dir_star'] + "SE2.Final.bam"
+# filtered outputs (A06c)
+filepath_df['A06b_bam_dedupe_PE'] = filepath_df['A06a_dir_star'] + "star_dedupe_pe.log"
+filepath_df['A06b_bam_dedupe_SE1'] = filepath_df['A06a_dir_star'] + "star_dedupe_se1.log"
+filepath_df['A06b_bam_dedupe_SE2'] = filepath_df['A06a_dir_star'] + "star_dedupe_se2.log"
+filepath_df['A06b_bam_starfilt_PE'] = filepath_df['A06a_dir_star'] + "PE.Final.bam"
+filepath_df['A06b_bam_starfilt_SE1'] = filepath_df['A06a_dir_star'] + "SE1.Final.bam"
+filepath_df['A06b_bam_starfilt_SE2'] = filepath_df['A06a_dir_star'] + "SE2.Final.bam"
 
-# samtools & picard output (A05e)
-filepath_df['A05e_txt_samtools_PE'] = filepath_df['A05a_dir_star'] + "samstats_PE"
-filepath_df['A05e_txt_samtools_SE1'] = filepath_df['A05a_dir_star'] + "samstats_SE1"
-filepath_df['A05e_txt_samtools_SE2'] = filepath_df['A05a_dir_star'] + "samstats_SE2"
+# samtools & picard output (A06e)
+filepath_df['A06e_txt_samtools_PE'] = filepath_df['A06a_dir_star'] + "samstats_PE"
+filepath_df['A06e_txt_samtools_SE1'] = filepath_df['A06a_dir_star'] + "samstats_SE1"
+filepath_df['A06e_txt_samtools_SE2'] = filepath_df['A06a_dir_star'] + "samstats_SE2"
 
-filepath_df['A05e_txt_picard_PE'] = filepath_df['A05a_dir_star'] + "picard_PE"
-filepath_df['A05e_txt_picard_SE1'] = filepath_df['A05a_dir_star'] + "picard_SE1"
-filepath_df['A05e_txt_picard_SE2'] = filepath_df['A05a_dir_star'] + "picard_SE2"
+filepath_df['A06e_txt_picard_PE'] = filepath_df['A06a_dir_star'] + "picard_PE"
+filepath_df['A06e_txt_picard_SE1'] = filepath_df['A06a_dir_star'] + "picard_SE1"
+filepath_df['A06e_txt_picard_SE2'] = filepath_df['A06a_dir_star'] + "picard_SE2"
 
 
 

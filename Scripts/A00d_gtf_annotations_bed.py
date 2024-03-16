@@ -8,11 +8,6 @@
 # recommend running interactively in python/Jupyter to check outputs
 # works for .gtfs from GENCODE, but double check fmt for other sources
 
-# if running interactively, check snmCT_parameters.env loaded or manually spec os.environ e.g.,
-# os.environ['ref_dir'] = "/u/project/cluo/chliu/Genomes/human_gencode_v40"
-# os.environ['ref_gtf'] = "/u/project/cluo/chliu/Genomes/human_gencode_v40/gencode.v40.primary_assembly.annotation.gtf"
-# os.environ['ref_chromsizes'] = "/u/project/cluo/chliu/Genomes/human_gencode_v40/chromsizes.tsv"
-
 
 
 # load packages ----------------------------------------------------------------
@@ -22,9 +17,26 @@ import os
 
 
 
+
+# if running interactively, need to load some lines from snmCT_parameters.env
+# os.environ['ref_dir'] = "/u/project/cluo/chliu/Genomes/human_gencode_v40" or the below loop
+# (use absolute versus relative path of parameters.env file if below not working!)
+envvar_needed = ['dir_proj', 'ref_dir', 'ref_gtf', 'ref_chromsizes']
+try:
+    os.environ['ref_dir']
+except KeyError:
+    envspec = pd.read_csv("../snmCT_parameters.env", sep = "=", comment="#", header = None
+               ).set_axis(['varname', 'varpath'], axis = 1
+               ).query('varname in @envvar_needed')
+    for index, row in envspec.iterrows():
+        os.environ[row["varname"]] = row["varpath"]
+os.chdir(os.environ['dir_proj'])
+
+
+
 # load reference info ----------------------------------------------------------
 
-os.chdir(os.environ['ref_dir'])
+# os.chdir(os.environ['ref_dir'])
 os.makedirs("annotations/", exist_ok=True)
 
 gtf_file = pd.read_csv(os.environ['ref_gtf'],

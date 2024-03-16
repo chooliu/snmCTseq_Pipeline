@@ -1,12 +1,12 @@
 
 #!/bin/bash
 #$ -cwd
-#$ -o sublogs/A05c_starfilt.$JOB_ID.$TASK_ID
+#$ -o sublogs/A06b_starfilt.$JOB_ID.$TASK_ID
 #$ -j y
-#$ -l h_rt=8:00:00,h_data=16G
-#$ -N A05c_starfilt
-#$ -t 1-256
-#$ -hold_jid_ad A05a_star
+#$ -l h_rt=6:00:00,h_data=16G
+#$ -N A06b_starfilt
+#$ -t 1-512
+#$ -hold_jid_ad A06a_star
 
 
 
@@ -18,7 +18,7 @@ echo " "
 
 
 
-# environment init ------------------—------------------—-----------------------
+# environment init -------------------------------------------------------------
 
 . /u/local/Modules/default/init/modules.sh # <--
 module load anaconda3 # <--
@@ -30,7 +30,7 @@ skip_complete=true # <-- for help with incomplete jobs
 
 
 
-# extract target filepaths ------------------—------------------—---------------
+# extract target filepaths -----------------------------------------------------
 
 # helper functions
 query_metadat () {
@@ -64,13 +64,13 @@ done
 # filepaths associated with target rows in well-level metadata -----------------
 
 wellprefix=($(query_metadat "wellprefix"))
-dir_well=($(query_metadat "A05a_dir_star"))
+dir_well=($(query_metadat "A06a_dir_star"))
 
 
 
-# set naming convention within each well folder -------------—------------------
+# set naming convention within each well folder --------------------------------
 
-# .bam files in (from A05a)
+# .bam files in (from A06a)
 bam_in_pe=PE.Aligned.out.bam
 bam_in_se1=SE1.Aligned.out.bam
 bam_in_se2=SE2.Aligned.out.bam
@@ -95,11 +95,13 @@ bam_final_pe=PE.Final.bam
 bam_final_se1=SE1.Final.bam
 bam_final_se2=SE2.Final.bam
 
+
+
 # map each well
 for row in ${target_well_rows[@]} 
 do
 
-    # check directory/prior mapping ------------------—------------------—-----
+    # check directory/prior mapping -------------------------------------------
     # check for existing mapping output
     # if final outputs exist, skip; else run filtering of direct STAR align
     
@@ -114,7 +116,7 @@ do
     else
     
         echo -e "\n\napplying STAR to '${wellprefix[$row]}'...\n\n"
-        cd ${dir_well[$row]}
+        cd ${dir_proj}/${dir_well[$row]}
         
 
         # proceed if all input files exist
@@ -124,11 +126,11 @@ do
             # clear intermediate files (if not all of them exist)
             rm ${bam_final_pe} ${bam_final_se1} ${bam_final_se2} 2>&1 >/dev/null
 
-        # run RNA filtering ------------------—------------------—-----------------
+        # run RNA filtering -------------------------------------------------------
         # in: three .bams from STAR mapping: $bam_in_* (paired-end, single-end read 1, read 2)
         # out: - MAPQ and f ($bam_final_*)
         #      - key log files (e.g., mapping rate) 
-        # ------------------—------------------—-----------------------------------
+        # -------------------------------------------------------------------------
         
         # STAR will output singletons in .bam file
         # (e.g., read 2 maps but read 1 doesn't; samtools view -f 8 ${bam_in_pe})
@@ -148,11 +150,11 @@ do
         # (i) paired-end
         picard MarkDuplicates -I ${bam_in_pe} \
             --ASSUME_SORT_ORDER "queryname" --OPTICAL_DUPLICATE_PIXEL_DISTANCE 2500 \
-            --ADD_PG_TAG_TO_READS false --DUPLICATE_SCORING_STRATEGY RANDOM --REMOVE_DUPLICATES \
+            --ADD_PG_TAG_TO_READS false --REMOVE_DUPLICATES \
             -O ${bam_dedupe_pe} -M ${picard_log_pe}
 
         samtools view -h -q 10 -f 0x0002 ${bam_dedupe_pe} > ${sam_q10_pe}
-        perl ${dir_proj}/Scripts/A05c_classify_mCT_reads_STAR.pl ${sam_q10_pe}
+        perl ${dir_proj}/Scripts/A06b_classify_mCT_reads_STAR.pl ${sam_q10_pe}
         awk 'NR == FNR { if ($0=="" || $3=="RNA") line[NR]; next } (FNR in line)' \
                 ${sam_q10_pe}_annotations ${sam_q10_pe} |
                 samtools view -b - | samtools sort - > ${bam_final_pe}
@@ -163,11 +165,11 @@ do
         # (ii) single-end, read 1
         picard MarkDuplicates -I ${bam_in_se1} \
             --ASSUME_SORT_ORDER "queryname" --OPTICAL_DUPLICATE_PIXEL_DISTANCE 2500 \
-            --ADD_PG_TAG_TO_READS false --DUPLICATE_SCORING_STRATEGY RANDOM --REMOVE_DUPLICATES \
+            --ADD_PG_TAG_TO_READS false --REMOVE_DUPLICATES \
             -O ${bam_dedupe_se1} -M ${picard_log_se1}
             
         samtools view -h -q 10 ${bam_dedupe_se1} > ${sam_q10_se1}
-        perl ${dir_proj}/Scripts/A05c_classify_mCT_reads_STAR.pl ${sam_q10_se1}
+        perl ${dir_proj}/Scripts/A06b_classify_mCT_reads_STAR.pl ${sam_q10_se1}
         awk 'NR == FNR { if ($0=="" || $3=="RNA") line[NR]; next } (FNR in line)' \
                 ${sam_q10_se1}_annotations ${sam_q10_se1} |
                 samtools view -b - | samtools sort - > ${bam_final_se1}
@@ -182,7 +184,7 @@ do
             -O ${bam_dedupe_se2} -M ${picard_log_se2}
             
         samtools view -h -q 10 ${bam_dedupe_se2} > ${sam_q10_se2}
-        perl ${dir_proj}/Scripts/A05c_classify_mCT_reads_STAR.pl ${sam_q10_se2}
+        perl ${dir_proj}/Scripts/A06b_classify_mCT_reads_STAR.pl ${sam_q10_se2}
         awk 'NR == FNR { if ($0=="" || $3=="RNA") line[NR]; next } (FNR in line)' \
                 ${sam_q10_se2}_annotations ${sam_q10_se2} |
                 samtools view -b - | samtools sort - > ${bam_final_se2}
@@ -200,7 +202,10 @@ do
 done
 
 
-echo -e "\n\n'A05c_star_filtering' completed.\n\n"
+
+
+
+echo -e "\n\n'A06b_star_filtering' completed.\n\n"
 
 
 

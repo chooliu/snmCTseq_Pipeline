@@ -3,11 +3,10 @@
 #$ -cwd
 #$ -o sublogs/A07_compile_RNA.$JOB_ID.$TASK_ID
 #$ -j y
-#$ -l h_rt=6:00:00,h_data=12G
+#$ -l h_rt=2:00:00,h_data=8G
 #$ -N A07_compile_RNA
-#$ -t 2-5
-
-
+#$ -t 2-6
+#$ -hold_jid A06a_star,A06b_starfilt,A06d_featurecounts,A06e_samstat_star
 
 
 echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `hostname -s`
@@ -15,7 +14,10 @@ echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `date `
 echo " "
 
 
-# environment init ------------------—------------------—-----------------------
+
+
+
+# environment init -------------------------------------------------------------
 
 . /u/local/Modules/default/init/modules.sh # <--
 module load anaconda3 # <--
@@ -25,18 +27,18 @@ export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
 
 
 
-# run each helper script (A07*) ------------------—------------------—----------
+# run each helper script (A07*) ------------------------------------------------
 
 # note: in practice these can each be submitted interactively/as its own task,
 # as some of these scripts should be much lower resource than others;
-# the -t 2-5 job parallelization is just for tidyness
+# the -t 2-6 job parallelization is just for tidyness
 
 echo "metadata script # $SGE_TASK_ID running:"
 
 case $SGE_TASK_ID in
 
-  1)
-    echo "python Scripts/A07a_trimming.py" # usually already run in A06a
+  1) # usually already run in A06a; run -t 1-6 instead of 2-6 if not yet run
+    echo "python Scripts/A07a_trimming.py" 
     python Scripts/A07a_trimming.py
     ;;
 
@@ -46,18 +48,23 @@ case $SGE_TASK_ID in
     ;;
 
   3)
-    echo "python Scripts/A07c_RNA_featcounts.py"
-    python Scripts/A07c_RNA_featcounts.py
+    echo "python Scripts/A07c_RNA_dedupe.py"
+    python Scripts/A07c_RNA_dedupe.py
     ;;
 
   4)
-    echo "python Scripts/A07d_RNA_samtools.py"
-    python Scripts/A07d_RNA_samtools.py
+    echo "python Scripts/A07d_RNA_featcounts.py"
+    python Scripts/A07d_RNA_featcounts.py
     ;;
 
   5)
-    echo "python Scripts/A07e_RNA_picard.py"
-    python Scripts/A07e_RNA_picard.py
+    echo "python Scripts/A07e_RNA_samtools.py"
+    python Scripts/A07e_RNA_samtools.py
+    ;;
+
+  6)
+    echo "python Scripts/A07f_RNA_picard.py"
+    python Scripts/A07f_RNA_picard.py
     ;;
 
   *)

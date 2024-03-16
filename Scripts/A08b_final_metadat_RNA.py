@@ -2,39 +2,47 @@
 # A08b_final_metadat_RNA.py ====================================================
 # assumes no changes to script output names from A06/A07
 
-# setup ------------------—------------------—----------------------------------
+# setup ------------------------------------------------------------------------
 
 import pandas as pd
-import glob
+import os
 
 
-
-# load tables ------------------—------------------—----------------------------
+# load tables ------------------------------------------------------------------
 
 def read_tbl_wrapper(filepath, prefix = ""):
     return(pd.read_csv(filepath, delimiter="\t", index_col = 0).add_prefix(prefix))
 
-df_trim_fastp = read_tbl_wrapper("Metadata/A06a_trimming.tsv", "Premap_")
+if os.path.exists("Metadata/A07a_trimming.tsv"):
+    df_trim_fastp = read_tbl_wrapper("Metadata/A07a_trimming.tsv", "Premap_")
+else:
+    df_trim_fastp = read_tbl_wrapper("Metadata/A05a_trimming.tsv", "Premap_")
+    
 
 df_star_pe = read_tbl_wrapper("Metadata/A07b_RNA_maprate_PE.tsv", "PE_")
 df_star_se1 = read_tbl_wrapper("Metadata/A07b_RNA_maprate_SE1.tsv", "SE1_")
 df_star_se2 = read_tbl_wrapper("Metadata/A07b_RNA_maprate_SE2.tsv", "SE2_")
 
-df_featurecounts_gene = read_tbl_wrapper("Metadata/A07c_RNA_featcounts_gene.tsv", "Gene_")
-df_featurecounts_exon = read_tbl_wrapper("Metadata/A07c_RNA_featcounts_exon.tsv", "Exon_")
+df_dedupe_pe = read_tbl_wrapper("Metadata/A07c_RNA_picard_PE.tsv", "PE_")
+df_dedupe_se1 = read_tbl_wrapper("Metadata/A07c_RNA_picard_SE1.tsv", "SE1_")
+df_dedupe_se2 = read_tbl_wrapper("Metadata/A07c_RNA_picard_SE2.tsv", "SE2_")
 
-df_samstat_pe = read_tbl_wrapper("Metadata/A07d_RNA_samstats_PE.tsv", "PE_")
-df_samstat_se1 = read_tbl_wrapper("Metadata/A07d_RNA_samstats_SE1.tsv", "SE1_")
-df_samstat_se2 = read_tbl_wrapper("Metadata/A07d_RNA_samstats_SE2.tsv", "SE2_")
+df_featurecounts_gene = read_tbl_wrapper("Metadata/A07d_RNA_featcounts_gene.tsv", "Gene_")
+df_featurecounts_exon = read_tbl_wrapper("Metadata/A07d_RNA_featcounts_exon.tsv", "Exon_")
 
-df_picard_pe = read_tbl_wrapper("Metadata/A07e_RNA_picard_PE.tsv", "PE_")
-df_picard_se1 = read_tbl_wrapper("Metadata/A07e_RNA_picard_SE1.tsv", "SE1_")
-df_picard_se2 = read_tbl_wrapper("Metadata/A07e_RNA_picard_SE2.tsv", "SE2_")
+df_samstat_pe = read_tbl_wrapper("Metadata/A07e_RNA_samstats_PE.tsv", "PE_")
+df_samstat_se1 = read_tbl_wrapper("Metadata/A07e_RNA_samstats_SE1.tsv", "SE1_")
+df_samstat_se2 = read_tbl_wrapper("Metadata/A07e_RNA_samstats_SE2.tsv", "SE2_")
+
+df_picard_pe = read_tbl_wrapper("Metadata/A07f_RNA_picard_PE.tsv", "PE_")
+df_picard_se1 = read_tbl_wrapper("Metadata/A07f_RNA_picard_SE1.tsv", "SE1_")
+df_picard_se2 = read_tbl_wrapper("Metadata/A07f_RNA_picard_SE2.tsv", "SE2_")
 
 
 metadata_rna = \
     pd.concat([df_trim_fastp,
                df_star_pe, df_star_se1, df_star_se2,
+               df_dedupe_pe, df_dedupe_se1,  df_dedupe_se2,
               df_featurecounts_gene, df_featurecounts_exon,
               df_samstat_pe, df_samstat_se1, df_samstat_se2,
               df_picard_pe, df_picard_se1, df_picard_se2],
@@ -43,7 +51,7 @@ metadata_rna = metadata_rna.apply(pd.to_numeric, errors='coerce')
 
 
 
-# few 'combined' PE & SE metadata stats -------—--------------------------------
+# few 'combined' PE & SE metadata stats ----------------------------------------
 # some attempts at combined/weighted metrics
 
 # notes: (i) most output above reports paired-end read-pairs/fragments versus reads, hence *2
@@ -119,6 +127,6 @@ metadata_rna['Combined_AssignedFragments_Gene'] = \
     metadata_rna['Gene_SE2_Assigned']
 
 
-# final RNA metadata ------------------—------------------—---------------------
+# final RNA metadata -----------------------------------------------------------
 
 metadata_rna.to_csv("Metadata/A08b_metadata_RNA.tsv", sep = "\t")

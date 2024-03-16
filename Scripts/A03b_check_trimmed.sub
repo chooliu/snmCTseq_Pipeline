@@ -19,10 +19,6 @@ echo " "
 
 # environment init -------------------------------------------------------------
 
-. /u/local/Modules/default/init/modules.sh # <--
-module load anaconda3 # <--
-conda activate snmCTseq # <--
-
 export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
 
 overwrite_existing=false # <-- for help with incomplete jobs
@@ -154,13 +150,14 @@ nfastq_trimmed_folder=$(find "fastq_trimmed/" -maxdepth 1 -mindepth 1 -name '*.f
 fastq_missing=$((${nfastq_expected} - ${nfastq_tot_trimmed}))
 
 echo -e "\n\nchecks based on plate metadata:"
-echo "* num trimmed .fastqs expected based on # plates: (${num_platesin} plates)*384*4 = ${nfastq_expected} (R1p, R2p, R1o, R2o)"
+echo "* num trimmed .fastqs expected based on # plates: (${num_platesin} plates)*384*4 = ${nfastq_expected} (R1p, R2p, R1single, R2single)"
 echo "* num trimmed .fastq detected, summed from per-plate values above: ${nfastq_tot_trimmed}"
 echo "* num .fastqs missing: ${fastq_missing} ($((${fastq_missing}/4)) wells have no trimmed output?)"
 
 echo -e "\nother checks:"
 echo "* num .fastqs in fastq_trimmed: ${nfastq_trimmed_folder} (regardless of expected plate prefix; should be same as above)"
 echo "* num demultiplexed .fastqs detected: ${nfastq_demult_folder} (R1 & R2, count*2 = $((${nfastq_demult_folder}*2)) should equal trimmed .fastq.gz counts)"
+echo -e "\n\n\n"
 
 
 
@@ -199,7 +196,7 @@ echo -e "\n\nsuggest re-running and checking sublog output of above batches."
 
 echo -e "\n* checks the A03a output columns of 'metadat_well' if the file exists and is non-empty."
 echo "* if none missing, will only output target column names above."
-echo "* if some declared 'missing' but all other checks OK, may just be no/few reads surviving trimming."
+echo "* caveat: if some fastq.gz files seem 'missing' but all other checks OK, may just be no/few reads surviving trimming."
 echo "  (check 'fastq_demultip/' and associated fastp logs e.g., fastq_trimmed/wellprefix.html report)"
 
 
@@ -214,7 +211,7 @@ echo -e "-----------------------------------------------------------------\n"
 echo "checking if 'completed' in sublogs/A03a_trim* output."
 echo "if any filename is printed, the associated batch may have not completed trimming."
 
-grep -c 'A03a_trim completed' sublogs/A03a_trim* | awk -F ":" '$2==0 {print $1}'
+grep -c "'A03a_trim' completed" sublogs/A03a_trim* | awk -F ":" '$2==0 {print $1}'
 
 
 

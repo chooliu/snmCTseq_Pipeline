@@ -18,7 +18,7 @@ echo " "
 
 
 
-# environment init ------------------—------------------—-----------------------
+# environment init -------------------------------------------------------------
 
 . /u/local/Modules/default/init/modules.sh # <--
 module load anaconda3 # <--
@@ -28,12 +28,12 @@ export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
 
 
 
-# bismark index ------------------—------------------—--------------------------
+# bismark index ----------------------------------------------------------------
+# note: assumes that you only have one .fa in the ${ref_dir} folder!
+# caution if e.g., joining the lambda genome
 
 cd ${ref_dir}
 
-# note: if ref_fasta doesn't have .fa or .fasta file format
-# bismark may have issues detecting it in ${ref_dir}
 bismark_genome_preparation ${ref_dir} --bowtie2
 
 

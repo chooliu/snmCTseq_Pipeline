@@ -11,6 +11,7 @@
 # the relevant metadata parameters very likely to change between studies
 
 
+
 # load packages ----------------------------------------------------------------
 
 import glob
@@ -18,11 +19,19 @@ import sys
 import pandas as pd
 import os
 
-# if running interactively, check snmCT_parameters.env loaded or manually spec os.environ e.g.,
-# os.environ['dir_proj'] ="/u/project/cluo/chliu/Analyses/IGVF"; os.chdir(os.environ['dir_proj'])
-# os.environ['ref_dir'] = "/u/project/cluo/chliu/Genomes/human_gencode_v40"
-# os.environ['dir_originalfastq'] = "/u/project/cluo/Shared_Datasets/IGVF/202208_Pilot/snmCT-seq/fastq/"
-# os.environ['metadat_plate'] = "Metadata/A01b_plate_metadata.csv"
+# if running interactively, need to load some lines from snmCT_parameters.env
+# or manually spec os.environ -- e.g., via os.environ['dir_proj'] = "mydirectory" or this below loop
+# (check relative path of parameters.env file or change to absolute if below not working!)
+envvar_needed = ['dir_proj', 'dir_originalfastq', 'metadat_plate']
+try:
+    os.environ['dir_proj']
+except KeyError:
+    envspec = pd.read_csv("../snmCT_parameters.env", sep = "=", comment="#", header = None
+               ).set_axis(['varname', 'varpath'], axis = 1
+               ).query('varname in @envvar_needed')
+    for index, row in envspec.iterrows():
+        os.environ[row["varname"]] = row["varpath"]
+os.chdir(os.environ['dir_proj'])
 
 
 
@@ -33,19 +42,24 @@ filepaths_raw_fastq = glob.glob(fastq_dir + "*fastq.gz")
 print( filepaths_raw_fastq[0:4] )
 
 
+
 # data.frame of plate names ----------------------------------------------------
 
 # split before lane (L00[1-8]) to get unique plate names
 plates_df = pd.DataFrame(
     {'plate' : pd.unique([filepath.split("/")[-1].split("_L")[0] for filepath in filepaths_raw_fastq])}
-    ).sort_values('plate').reindex()
+    ).sort_values('plate').reset_index(drop = True)
 
-# study specific metadata, usually separated by -
-# example presented here is for IGVF cell lines
-plates_df['dateseq'] = plates_df['plate'].transform(lambda platename: platename.split("-")[0])
-plates_df['line'] = plates_df['plate'].transform(lambda platename: platename.split("-")[2])
-plates_df['time'] = plates_df['plate'].transform(lambda platename: platename.split("-")[3])
-plates_df['plateindex'] = plates_df['plate'].transform(lambda platename: platename.split("-")[4])
+# .fastq name --> study specific metadata, may need customization # <--
+# usually separated by "-"; example presented here is for IGVF cell lines
+# if not custom may get "IndexError: list index out of range; ValueError: Transform function failed"
+plates_df['datepool'] = plates_df['plate'].transform(lambda platename: platename.split("-")[0])
+plates_df['sample'] = plates_df['plate'].transform(lambda platename: platename.split("-")[1])
+plates_df['sort'] = plates_df['plate'].transform(lambda platename: platename.split("-")[2])
+plates_df['plateindex'] = plates_df['plate'].transform(lambda platename: platename.split("-")[3])
+
+plates_df['line'] = plates_df['sample'].transform(lambda platename: platename.split("D")[0])
+plates_df['time'] = plates_df['sample'].transform(lambda platename: platename.split("D")[1])
 
 # number each plate, "platenum" used for batch submission later on
 # platenum indexed by 1-Nplates for compatibility with SGE (can't qsub -t 0)

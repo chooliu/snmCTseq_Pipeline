@@ -1,5 +1,5 @@
 
-# A07a_trimming.py =============================================================
+# A05a_trimming.py =============================================================
 
 
 
@@ -56,6 +56,6 @@ ndupe = df_fastp.index.duplicated().sum()
 print(ndupe)
 
 # final export
-print("exporting Metadata/A07a_trimming.tsv of shape: {}".format(*df_fastp.shape))
-df_fastp.to_csv("Metadata/A07a_trimming.tsv", sep = '\t')
+print("exporting Metadata/A05a_trimming.tsv of shape: {}".format(*df_fastp.shape))
+df_fastp.to_csv("Metadata/A05a_trimming.tsv", sep = '\t')
 print("\n\n")

@@ -18,7 +18,7 @@ echo " "
 
 
 
-# environment init ------------------—------------------—-----------------------
+# environment init -------------------------------------------------------------
 
 . /u/local/Modules/default/init/modules.sh # <--
 module load anaconda3 # <--
@@ -26,25 +26,24 @@ conda activate snmCTseq # <--
 
 export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
 
-
-
-# fastqc specific parameters
-n_wells=4  # <-- num wells/plate to sample
-overwrite_random_wells=false # <-- overwrite target list of wells (false by default)
-
-mkdir qc_demultip
+# put fastQC, multiQC into QC_demultip
+if [[ ! -s qc_demultip ]]
+then
+    mkdir qc_demultip
+fi
 
 
 
-# choose random wells ------------------—------------------—--------------------
+# choose random wells ----------------------------------------------------------
 
-# randomly select ${n_wells} from each prefix associated with 'raw_fastq' R1s to run fastqc on
-# & saves the names of the corresponding demultiplexed R1 .fastq in "${wells_to_run}"
+# randomly select ${numwells_run} from each prefix associated with 'raw_fastq' R1s to run fastqc on
+# & saves the names of the corresponding demultiplexed R1 .fastq in "${numwells_run}"
+# ${numwells_run}, ${wells_to_run}, ${overwrite_random_wells} are parameters from snm3C_parameters.env)
 
 # warning: will overwrite this .txt if already exists,
 # to avoid re-running more files than expected / the same files multiple times
 
-if [[ -e ${wells_to_run} && "${overwrite_random_wells}" == true ]]
+if [[ -s ${wells_to_run} && "${overwrite_random_wells}" == "true" ]]
     then
     
         echo "warning: Scripts/A02c_random_fastqc_wells.txt already exists."
@@ -54,13 +53,13 @@ if [[ -e ${wells_to_run} && "${overwrite_random_wells}" == true ]]
 fi
 
 # make random samples (otherwise skip)
-if [[ ! -e ${wells_to_run} ]]
+if [[ ! -s ${wells_to_run} ]]
 then
     for prefix in $(cut -f 2 -d ',' ${metadat_plate} | tail -n +2);
         do
         printf '%s\n' $(ls fastq_demultip/${prefix}*R1*fastq.gz \
                         | shuf \
-                        | head -n ${n_wells}) \
+                        | head -n ${numwells_run}) \
              >> ${wells_to_run}
         done
 else
@@ -74,7 +73,7 @@ cat ${wells_to_run}
 
 
 
-# apply fastqc ------------------—------------------—---------------------------
+# apply fastqc -----------------------------------------------------------------
 
 # run fastqc on the randomly selected wells
 echo "running fastqc on each well."
@@ -93,10 +92,10 @@ multiqc -d qc_demultip -o qc_demultip -n multiqc_fastqc \
 
 
 
+
 echo -e "\n\n'A02c_fastqc_demultip_fastq' completed.\n\n"
 
 
-echo " "
+
 echo "Job $JOB_ID ended on:   " `hostname -s`
 echo "Job $JOB_ID ended on:   " `date `
-echo " "

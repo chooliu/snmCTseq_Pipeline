@@ -1,12 +1,12 @@
 
 #!/bin/bash
 #$ -cwd
-#$ -o sublogs/A05f_samstat_star.$JOB_ID.$TASK_ID
+#$ -o sublogs/A06e_samstat_star.$JOB_ID.$TASK_ID
 #$ -j y
-#$ -l h_rt=8:00:00,h_data=24G
-#$ -N A05f_samstat_star
-#$ -t 1-256
-#$ -hold_jid_ad A05d_starfilt_check
+#$ -l h_rt=2:00:00,h_data=24G
+#$ -N A06e_samstat_star
+#$ -t 1-512
+#$ -hold_jid_ad A06b_starfilt
 
 
 
@@ -18,7 +18,7 @@ echo " "
 
 
 
-# environment init ------------------—------------------—-----------------------
+# environment init -------------------------------------------------------------
 
 . /u/local/Modules/default/init/modules.sh # <--
 module load anaconda3 # <--
@@ -30,7 +30,7 @@ skip_complete=true # <-- for help with incomplete jobs
 
 
 
-# extract target filepaths ------------------—------------------—---------------
+# extract target filepaths -----------------------------------------------------
 
 # helper functions
 query_metadat () {
@@ -64,29 +64,36 @@ done
 # filepaths associated with target rows in well-level metadata -----------------
 
 wellprefix=($(query_metadat "wellprefix"))
-dir_well=($(query_metadat "A05a_dir_star"))
+dir_well=($(query_metadat "A06a_dir_star"))
 
 
 
-# samtools stats on each well in the batch --—------------------—---------------
+# samtools stats on each well in the batch -------------------------------------
+# usually <5 seconds per .bam --> <12 min/24 wells
 
 for row in ${target_well_rows[@]} 
 do
 
-    cd $dir_proj
+    cd ${dir_proj}
     
     if [[ -s ${dir_well[$row]}/samstats_PE \
         && -s ${dir_well[$row]}/samstats_SE1 \
         && -s ${dir_well[$row]}/samstats_SE2 \
         && -s ${dir_well[$row]}/picard_PE \
         && -s ${dir_well[$row]}/picard_SE1 \
-        && -s ${dir_well[$row]}/picard_SE2 \
-        && "${skip_complete}"=="true" ]]
+        && -s ${dir_well[$row]}/picard_SE2 ]]
     then
-        echo -e "final aligned .bams for '${wellprefix[$row]}' already exist. skipping this well.'"
-    else
+        echo -e "final metrics for '${wellprefix[$row]}' already exist."
+        if [[ ${skip_complete} = "true" ]]
+        then
+            echo "skip_complete = true. skipping this well."
+            continue
+        else
+            echo "but skip_complete = false. re-running this well."
+        fi
+    fi
     
-        echo -e "\n\nprofiling .bams from '${wellprefix[$row]}'...\n\n"
+        echo -e "\n\ngetting metrics for '${wellprefix[$row]}'...\n\n"
 
         cd ${dir_well[$row]}
         
@@ -95,7 +102,7 @@ do
         samtools stats SE1.Final.bam | grep '^SN' | cut -f 2,3 > samstats_SE1
         samtools stats SE2.Final.bam | grep '^SN' | cut -f 2,3 > samstats_SE2
 
-        # run picard collectrnaseqmetrics
+        # run picard CollectRnaSeqMetrics
         samtools sort PE.Final.bam | \
             picard CollectRnaSeqMetrics -I /dev/stdin -O picard_PE \
             --REF_FLAT ${ref_flat} -STRAND "NONE" --RIBOSOMAL_INTERVALS ${ref_rrna}
@@ -106,14 +113,13 @@ do
             picard CollectRnaSeqMetrics -I /dev/stdin -O picard_SE2 \
             --REF_FLAT ${ref_flat} -STRAND "NONE" --RIBOSOMAL_INTERVALS ${ref_rrna}
             
-    fi
 done
 
 
 
 
 
-echo -e "\n\n'A05f_samstat_star' completed.\n\n"
+echo -e "\n\n'A06e_samstat_star' completed.\n\n"
 
 
 

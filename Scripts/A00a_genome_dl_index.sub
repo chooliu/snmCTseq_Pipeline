@@ -4,7 +4,7 @@
 #$ -o sublogs/A00a_genome_dl_index.$JOB_ID
 #$ -j y
 #$ -N A00a_genome_dl_index
-#$ -l h_rt=4:00:00,h_data=8G
+#$ -l h_rt=8:00:00,h_data=8G
 
 
 
@@ -16,7 +16,7 @@ echo " "
 
 
 
-# environment init ------------------—------------------—-----------------------
+# environment init -------------------------------------------------------------
 
 . /u/local/Modules/default/init/modules.sh # <--
 module load anaconda3 # <--
@@ -26,14 +26,14 @@ export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
 
 
 
-# download/extract ref ------------------—------------------—-------------------
+# download/extract ref ---------------------------------------------------------
 
 cd ${ref_dir}
 
 # download gencode v40 (GRCh38.p13) .fa.gz & .gtf.gz as example
 # double check filepaths and hard-coded names here 
-wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_40/GRCh38.primary_assembly.genome.fa.gz
-wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_40/gencode.v40.primary_assembly.annotation.gtf.gz
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz
+wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_43/gencode.v43.chr_patch_hapl_scaff.annotation.gtf.gz
 
 # extract compressed files as needed
 # put final, uncompressed names here into "snmCT_parameters.env" (as "ref_fasta" and "ref_gtf")
@@ -45,19 +45,22 @@ done
 # note: if ref_fasta doesn't have .fa or .fasta file format
 # bismark may have issues detecting it in ${ref_dir}
 # rename .fna --> .fa, for example
-# for f in *fna; do mv $f ${f/fna/fa}; done
+for f in *fna; do mv ${f} ${f/fna/fa}; done
 
 
-# note on working with Lambda phage or other spike-in (bisulfite conversion efficiency QC)
-# nice to add to reference genome at this step
-# e.g., Escherichia phage Lambda, complete genome (GenBank: J02459.1) via NCBI
+# # note on working with Lambda phage or other spike-in (bisulfite conversion efficiency QC)
+# # nice to add to reference genome at this step...
+# # e.g., Escherichia phage Lambda, complete genome (GenBank: J02459.1) via NCBI
 # wget "https://www.ncbi.nlm.nih.gov/sviewer/viewer.cgi?tool=portal&save=file$=seqview&db=nuccore&report=fasta&id=215104" -O lambda.fa
 # sed -i "1s/.*/>chrL/" lambda.fa
 # cat GRCh38.primary_assembly.genome.fa lambda.fa > GRCh38_plus_lambda.fa 
+# rm lambda.fa # *
+
+# * note: bismark in A00b assumes that you only have one .fa in the ${ref_dir} folder!
+# caution if e.g., joining the lambda genome
 
 
-
-# index, chrom sizes -----------------—------------------—----------------------
+# index, chrom sizes -----------------------------------------------------------
 
 # extract bp length/chromosome
 samtools faidx ${ref_fasta}

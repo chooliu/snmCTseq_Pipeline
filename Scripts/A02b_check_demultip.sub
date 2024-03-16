@@ -3,7 +3,7 @@
 #$ -cwd
 #$ -o sublogs/A02b_check_demult.$JOB_ID
 #$ -j y
-#$ -l h_rt=1:00:00,h_data=8G
+#$ -l h_rt=1:00:00,h_data=4G
 #$ -N A02b_check_demult
 #$ -hold_jid A02a_demultip
 
@@ -18,10 +18,6 @@ echo " "
 
 
 # environment init -------------------------------------------------------------
-
-. /u/local/Modules/default/init/modules.sh # <--
-module load anaconda3 # <--
-conda activate snmCTseq # <--
 
 export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
 
@@ -62,59 +58,13 @@ r2demultip=($(query_metadat "A02a_fqgz_demultip_R2"))
 
 
 echo -e "\n\n-----------------------------------------------------------------"
-echo "A. counting number of .fastq.gz files generated during demultiplexing step... "
-echo "-----------------------------------------------------------------"
+echo "A. checking expected output from well-level metadata file (A01c)..."
+echo -e "-----------------------------------------------------------------\n\n"
 
-num_platesin=$(cut -f 2 -d ',' ${metadat_plate} | tail -n +2 | wc -l)
-nfastq_expected=$((${num_platesin}*384*2))
-platenames=($(cut -f 2 -d ',' ${metadat_plate} | tail -n +2))
-
-nfastq_tot_demultip=0
-
-echo -e "\nR1.fastq.gz files\n"
-for ((i=0; i<${num_platesin}; i++)); 
-    do
-        nfastq_plate=$(
-            find "fastq_demultip/" -maxdepth 1 -mindepth 1 -name ${platenames[$i]}*R1.fastq.gz | wc -l)
-        echo -e "$(($i + 1)) \t ${platenames[$i]} \t ${nfastq_plate}"
-        let "nfastq_tot_demultip+=${nfastq_plate}"
-done
-
-echo -e "\nR2.fastq.gz files\n"
-for ((i=0; i<${num_platesin}; i++)); 
-    do
-        nfastq_plate=$(
-            find "fastq_demultip/" -maxdepth 1 -mindepth 1 -name ${platenames[$i]}*R2.fastq.gz | wc -l)
-        echo -e "$(($i + 1)) \t ${platenames[$i]} \t ${nfastq_plate}"
-        let "nfastq_tot_demultip+=${nfastq_plate}"
-done
-
-nfastq_demult_folder=$(find "fastq_demultip/" -maxdepth 1 -mindepth 1 -name '*.fastq.gz' | wc -l)
-fastq_missing=$((${nfastq_expected} - ${nfastq_tot_demultip}))
-
-echo -e "* num demultiplexed .fastqs expected: (${num_platesin} plates)*384*2 = ${nfastq_expected} R1 & R2"
-echo -e "\n* num detected, summed from per-plate values above: ${nfastq_tot_demultip}"
-echo "* num .fastqs in fastq_demultip: ${nfastq_demult_folder} (regardless of expected plate prefix; should be same as above)"
-echo "* num .fastqs missing: ${fastq_missing} ($((${fastq_missing}/2)) empty wells?)"
-
-
-
-
-echo -e "\n\n-----------------------------------------------------------------"
-echo "B. tabulating number of empty wells detected by perl script per plate... "
-echo -e "-----------------------------------------------------------------\n"
-
-grep "rm fastq" -c sublogs/A02a*
-
-echo -e "\n* # missing wells, based on # demultiplexing indices undetected in perl script."
-echo "* should be consistent with [A], with same number of wells as detected cell barcodes."
-
-
-
-
-echo -e "\n\n-----------------------------------------------------------------"
-echo "C. checking expected output from well-level metadata file (A01c)..."
-echo "-----------------------------------------------------------------"
+echo "* checks the A02a output columns of 'metadat_well' if the file exists and is non-empty."
+echo "* if none missing, will only output target column names above."
+echo "* if some declared 'missing' but all other checks OK, cell barcode may not exist."
+echo "  (check 'fastq_demultip/plate_summary.txt report)"
 
 echo -e "\nchecking Read 1 .fastq.gz files:\n"
 check_filepaths_in_assay ${r1demultip[@]}
@@ -122,51 +72,80 @@ check_filepaths_in_assay ${r1demultip[@]}
 echo -e "\nchecking Read 2 .fastq.gz files:\n"
 check_filepaths_in_assay ${r2demultip[@]}
 
-echo -e "\n* checks the A02a output columns of 'metadat_well' if the file exists and is non-empty."
-echo "* if none missing, will only output target column names above."
-echo "* if some declared 'missing' but all other checks OK, cell barcode may not exist."
-echo "  (check 'fastq_demultip/plate_summary.txt report)"
+
+echo -e "\n\n-----------------------------------------------------------------"
+echo "B. tabulating number of empty wells detected by perl script per plate... "
+echo -e "-----------------------------------------------------------------\n\n"
+
+echo "* # missing wells, based on # demultiplexing indices undetected in perl script."
+echo -e "* should be consistent with [A], with same number of wells as detected cell barcodes.\n\n"
+
+grep "rm fastq" -c sublogs/A02a*
+
+
+
+echo -e "\n\n-----------------------------------------------------------------"
+echo "C. checking log files for completion."
+echo -e "-----------------------------------------------------------------\n\n"
+
+echo "checking if ending timestamp in sublogs/A02a_demultiplex* output."
+echo -e "if any filename is printed, the associated batch may have not completed trimming.\n\n"
+
+grep -c 'ended on' sublogs/A02a_demultiplex* | awk -F ":" '$2==0 {print $1}'
 
 
 
 echo -e "\n\n-----------------------------------------------------------------"
 echo "D. checking that two summary .txt files were generated for each file... "
-echo -e "-----------------------------------------------------------------\n"
+echo -e "-----------------------------------------------------------------\n\n"
 
 summary_txt_missing=0
-
-for ((i=0; i<${num_platesin}; i++)); 
+for prefix in $(cut -f 2 -d ',' $metadat_plate | tail -n +2);
     do
-        if [[ $(find "fastq_demultip/" -maxdepth 1 -name "${platenames[$i]}*.txt" | wc -l) != 2 ]]
-        then 
+        if [[ $(find "fastq_demultip/" -maxdepth 1 -name "${prefix}*.txt" | wc -l) != 2 ]]
+            then 
             let "summary_txt_missing+=1"
-            echo -e "$(($i + 1)) \t ${platenames[$i]}"
+            echo "summary files missing for : ${prefix}"
         fi
-done
+    done
 
-echo -e "* ${summary_txt_missing} 'raw_fastq' files are missing their summary .txt file(s)."
+echo -e "\n\n* ${summary_txt_missing} 'raw_fastq' files are missing their summary .txt file(s)."
 echo "* if any summaries are missing, the demultiplexing jobs may have failed (historically, memory issues)"
 
 
 
-
 echo -e "\n\n-----------------------------------------------------------------"
-echo "E. printing percent barcodes unassigned..."
-echo -e "-----------------------------------------------------------------\n"
+echo "E. printing counts & barcodes corrected (with 1bp mismatch)..."
+echo -e "-----------------------------------------------------------------\n\n"
 
-for ((i=0; i<${num_platesin}; i++)); 
+for prefix in $(cut -f 2 -d ',' $metadat_plate | tail -n +2);
+do
+    echo $prefix
+    for summaryfile in fastq_demultip/${prefix}*summary*.txt
     do
-        echo -e "$(($i + 1)) \t ${platenames[$i]}"
-        for summaryfile in fastq_demultip/${platenames[$i]}*summary*.txt
-        do
-            awk 'NR==2' ${summaryfile} | cut -f 4
-        done
+        awk 'NR<=2' $summaryfile 
+    done
 done
 
-echo -e "\n* unassigned reads should be ~50%, assuming two barcode ref files (summary_1.txt, summary_2.txt)"
-echo "  caveat: sum generally >100% b/c of reads 'double counted' as unassigned to both barcode lists."
+
+
+echo -e "\n\n-----------------------------------------------------------------"
+echo "F. printing percent barcodes unassigned..."
+echo -e "-----------------------------------------------------------------\n\n"
+
+echo "* unassigned reads should be ~50%, assuming two barcode ref files (summary_1.txt, summary_2.txt)"
+echo "  caveat: sum generally >100% b/c of unassigned reads 'double counted' to both barcode lists."
 echo "* total unassigned expected 1-3%, usually due to ambig bases (N) or sequencing errors;"
-echo "  higher rates suggestive of contaminating library, issues in lane merging (fastq_raw input)"
+echo -e "  higher rates suggestive of contaminating library, issues in lane merging (fastq_raw input)\n\n"
+
+for prefix in $(cut -f 2 -d ',' $metadat_plate | tail -n +2);
+do
+    echo $prefix
+    for summaryfile in fastq_demultip/${prefix}*summary*.txt
+    do
+        tail -n 1 $summaryfile
+    done
+done
 
 
 
@@ -174,8 +153,8 @@ echo "  higher rates suggestive of contaminating library, issues in lane merging
 echo -e "\n\n'A02b_check_demultip' completed.\n\n"
 
 
-echo " "
+
 echo "Job $JOB_ID ended on:   " `hostname -s`
 echo "Job $JOB_ID ended on:   " `date `
-echo " "
+
 

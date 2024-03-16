@@ -1,11 +1,11 @@
 #!/bin/bash
 #$ -cwd
-#$ -o sublogs/A05a_star.$JOB_ID.$TASK_ID
+#$ -o sublogs/A06a_star.$JOB_ID.$TASK_ID
 #$ -j y
 #$ -l h_rt=12:00:00,h_data=8G,exclusive
 #$ -pe shared 8
-#$ -N A05a_star
-#$ -t 1-256
+#$ -N A06a_star
+#$ -t 1-512
 #$ -hold_jid_ad A03a_trim
 
 
@@ -76,7 +76,7 @@ done
 # filepaths associated with target rows in well-level metadata -----------------
 
 wellprefix=($(query_metadat "wellprefix"))
-dir_well=($(query_metadat "A05a_dir_star"))
+dir_well=($(query_metadat "A06a_dir_star"))
 
 # .fastqs for input to PE mapping (properly paired read pairs)
 fastq_r1p=($(query_metadat "A03a_fqgz_paired_R1"))
@@ -101,6 +101,11 @@ bam_se2=SE2.Aligned.out.bam
 
 
 # run STAR mapping -------------------------------------------------------------
+
+if [[ ! -s mapping_star ]]
+then
+    mkdir mapping_star
+fi
 
 cd ${dir_proj}/mapping_star
 
@@ -133,7 +138,7 @@ for row in ${target_well_rows[@]}
         echo -e "\n\napplying STAR to '${wellprefix[$row]}'...\n\n"
 
       # remove old directory if one exists to deal with incomplete files
-      # albeit the only major issues are .bai and .tbi indices 
+      # albeit the only issue i've seen are .bai and .tbi indices 
       # (these often are not overwritten by software in the pipeline,
       # resulting in "index is older than file" errors later on)
       if [[ -e ${dir_well[$row]} && "${overwrite_partial}" == "true" ]]
@@ -191,7 +196,7 @@ for row in ${target_well_rows[@]}
 
     rm -rf *_STARtmp
     rm -rf *SJ.out.tab
-    rm ${fastq_pe_unmap1} ${fastq_pe_unmap2}
+    rm "${fastq_pe_unmap1}.gz" "${fastq_pe_unmap2}.gz"
     
   
   fi
@@ -207,7 +212,7 @@ STAR --genomeDir ${ref_starfolder} --genomeLoad Remove
 
 
 
-echo -e "\n\n'A05a_star_mapping' completed.\n\n"
+echo -e "\n\n'A06a_star_mapping' completed.\n\n"
 
 
 echo "Job $JOB_ID.$SGE_TASK_ID ended on:   " `hostname -s`

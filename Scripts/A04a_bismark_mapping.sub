@@ -1,0 +1,190 @@
+
+#!/bin/bash
+#$ -cwd
+#$ -o sublogs/A04a_bismark.$JOB_ID.$TASK_ID
+#$ -j y
+#$ -l h_rt=12:00:00,h_data=16G
+#$ -pe shared 4
+#$ -N A04a_bismark
+#$ -t 1-512
+#$ -hold_jid_ad A03a_trim
+
+
+
+echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `hostname -s`
+echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `date `
+echo " "
+
+
+
+
+
+# environment init -------------------------------------------------------------
+
+. /u/local/Modules/default/init/modules.sh # <--
+module load anaconda3 # <--
+conda activate snmCTseq # <--
+
+export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
+
+skip_complete=true # <-- for help with incomplete jobs
+overwrite_partial=true # <-- for help with incomplete jobs
+
+# note: estimated time is ~15 min/well * 24 wells by default --> 6hrs expected
+# 16G may also be excessive (will usually run on 4 x 8GB)
+
+
+
+# extract target filepaths -----------------------------------------------------
+
+# helper functions
+query_metadat () {
+  awk -F',' -v targetcol="$1" \
+      'NR==1 {
+                for (i=1;i<=NF;i++) {
+                    if ($i==targetcol) {assayout=i; break} }
+                print $assayout
+              }
+      NR>1 {
+                print $assayout
+            }' ${metadat_well}
+}
+
+# extract target wells, print values for log
+batchnum=($(query_metadat "batchnum"))
+nwells=${#batchnum[@]}
+
+target_well_rows=()
+for ((row=1; row<=nwells; row++))
+do
+    if [[ "${batchnum[$row]}" == "${SGE_TASK_ID}" ]]
+    then
+        target_well_rows+=($row)
+    fi
+done
+
+
+
+# filepaths associated with target rows in well-level metadata -----------------
+# (generally not customizeable because output names set by bismark)
+
+wellprefix=($(query_metadat "wellprefix"))
+dir_well=($(query_metadat "A04a_dir_bismark"))
+
+# .fastqs for input to PE mapping (properly paired read pairs)
+fastq_r1p=($(query_metadat "A03a_fqgz_paired_R1"))
+fastq_r2p=($(query_metadat "A03a_fqgz_paired_R2"))
+
+# .fastqs for input to SE mapping, including singletons from trimming & unaligned in PE-mapping
+fastq_r1singletrim=($(query_metadat "A03a_fqgz_singletrim_R1"))
+fastq_r2singletrim=($(query_metadat "A03a_fqgz_singletrim_R2"))
+fastq_r1unmap=($(query_metadat "A04a_fqgz_unmap_R1"))
+fastq_r2unmap=($(query_metadat "A04a_fqgz_unmap_R2"))
+
+# bismark mapping .bam output
+bam_pe=($(query_metadat "A04a_bam_bismark_PE"))
+bam_se1trim=($(query_metadat "A04a_bam_bismark_SE1trim"))
+bam_se2trim=($(query_metadat "A04a_bam_bismark_SE2trim"))
+bam_se1unmap=($(query_metadat "A04a_bam_bismark_SE1unmap"))
+bam_se2unmap=($(query_metadat "A04a_bam_bismark_SE2unmap"))
+
+
+
+# print target files -----------------------------------------------------------
+
+echo "batch number: ${SGE_TASK_ID}"
+echo "processing the following rows in well metadata file (${metadat_well}):"
+for row in ${target_well_rows[@]}
+    do
+        echo -e "$row\t${wellprefix[$row]}"
+    done
+echo -e "\n\n"
+
+
+if [[ ! -s mapping_bismark ]]
+then
+    mkdir mapping_bismark
+fi
+
+
+# for each well in batch, apply mC map & quant
+# (could add check here to skip rows where no trimming output,
+# but since done by well doesn't cause catastrophic problems)
+for row in ${target_well_rows[@]} 
+do
+
+    # check for existing mapping output
+    # if final outputs exist, skip; else run mapping .bam
+    cd ${dir_proj}
+    
+    if [[ -s ${bam_pe[$row]} \
+        && -s ${bam_se1trim[$row]} \
+        && -s ${bam_se2trim[$row]} \
+        && "${skip_complete}"=="true" ]]
+    then
+        echo -e "alignments for '${wellprefix[$row]}' already exist. skipping this well.'"
+    else
+    
+        echo -e "\n\napplying bismark to '${wellprefix[$row]}'...\n\n"
+
+        # remove old directory if one exists to deal with incomplete files?
+        # won't contribute to errors*, just potential tmp output
+        # (e.g., bismark C-to-T conversions) using disk space
+        
+        # * only major issues are downstream in .bai and .tbi indices 
+        # (these often are not overwritten by software in the pipeline,
+        # resulting in "index is older than file" errors later on)
+        if [[ -e mapping_bismark/${wellprefix[$row]} && "$overwrite_partial" == "true" ]]
+        then
+            echo -e "\n\nWARNING: folder for '${wellprefix[$row]}' exists, but not its final allc files."
+            echo "because overwrite_partial=true, deleting the directory and re-mapping."
+            rm -rf mapping_bismark/${wellprefix[$row]}
+        fi
+        
+        mkdir ${dir_well[$row]}
+        cd ${dir_well[$row]}
+        
+        
+        
+    # (A) run bismark "two-stage" mapping -------------------------------------
+    # in: .fastqs from trimming: four .fastqs,
+    #     properly paired ($fastq_r2p, $fastq_r1p) and trimming singletons
+    #    ($fastq_r1singletrim, $fastq_r2singletrim)
+    # out: - paired-end alignments out ($bam_pe, $bam_pe_unmap1, $bam_pe_unmap2)
+    #      - single-end .bam alignments out ($bam_single1, $bam_single2)
+    #      - key log files (e.g., mapping rate) 
+    # -------------------------------------------------------------------------
+
+       # (Ai.) PE [2 to 10 minutes]
+       # assumptions: pairs that map ambiguously in paired-end mode should be discarded
+       
+       bismark ${ref_dir} --bowtie2 --pbat \
+                -1 ${dir_proj}/${fastq_r1p[$row]} -2 ${dir_proj}/${fastq_r2p[$row]} \
+                --maxins 2000 --multicore 3 --un --ambiguous
+
+        # (Aii.) single-end, R1 [1 to 3 minutes]
+        bismark ${ref_dir} --bowtie2 --pbat --multicore 3 -se \
+                ${dir_proj}/${fastq_r1unmap[$row]}:${dir_proj}/${fastq_r1singletrim[$row]}
+
+        # (Aiii.) single-end, R2 [1 to 3 minutes]
+        bismark ${ref_dir} --bowtie2 --multicore 3 -se \
+                ${dir_proj}/${fastq_r2unmap[$row]}:${dir_proj}/${fastq_r2singletrim[$row]}
+
+        # cleanup
+        rm *ambiguous_reads*
+        
+
+fi
+done
+
+
+
+
+
+echo -e "\n\n'A04a_bismark' completed.\n\n"
+
+
+
+echo "Job $JOB_ID.$SGE_TASK_ID ended on:   " `hostname -s`
+echo "Job $JOB_ID.$SGE_TASK_ID ended on:   " `date `
+echo " "

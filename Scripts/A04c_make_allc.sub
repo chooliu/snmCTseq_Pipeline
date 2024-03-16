@@ -1,0 +1,171 @@
+
+#!/bin/bash
+#$ -cwd
+#$ -o sublogs/A04c_make_allc.$JOB_ID.$TASK_ID
+#$ -j y
+#$ -l h_rt=12:00:00,h_data=16G
+#$ -N A04c_make_allc
+#$ -t 1-512
+#$ -hold_jid_ad A04b_filter_mC
+
+
+
+echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `hostname -s`
+echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `date `
+echo " "
+
+
+
+
+
+# environment init -------------------------------------------------------------
+
+. /u/local/Modules/default/init/modules.sh # <--
+module load anaconda3 # <--
+conda activate snmCTseq # <--
+
+export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
+
+skip_complete=true # <-- for help with incomplete jobs
+check_partial=true # <-- check if completed file corrupt --> test & delete?
+
+# extract target filepaths -----------------------------------------------------
+
+# helper functions
+query_metadat () {
+  awk -F',' -v targetcol="$1" \
+      'NR==1 {
+                for (i=1;i<=NF;i++) {
+                    if ($i==targetcol) {assayout=i; break} }
+                print $assayout
+              }
+      NR>1 {
+                print $assayout
+            }' ${metadat_well}
+}
+
+# extract target wells, print values for log
+batchnum=($(query_metadat "batchnum"))
+nwells=${#batchnum[@]}
+
+target_well_rows=()
+for ((row=1; row<=nwells; row++))
+do
+    if [[ "${batchnum[$row]}" == "${SGE_TASK_ID}" ]]
+    then
+        target_well_rows+=($row)
+    fi
+done
+
+
+
+# filepaths associated with target rows in well-level metadata -----------------
+# (generally not customizeable because output names set by bismark)
+
+wellprefix=($(query_metadat "wellprefix"))
+dir_well=($(query_metadat "A04a_dir_bismark"))
+
+# filtered .bam output
+bam_pe_filtered=PE_final.bam
+bam_se_filtered=SE_final.bam
+
+bam_pe_final=($(query_metadat "A04b_bamfinal_PE"))
+bam_se_final=($(query_metadat "A04b_bamfinal_SE"))
+
+allc_out=($(query_metadat "A04c_allc_final"))
+allctbi_out=($(query_metadat "A04c_allctbi_final"))
+
+allc_PE=PE_allc.tsv.gz
+allc_SE=SE_allc.tsv.gz
+
+allc_final=allc.tsv.gz
+allctbi_final=allc.tsv.gz.tbi
+allc_check=allc_check.txt
+
+
+# print target files -----------------------------------------------------------
+
+echo "batch number: ${SGE_TASK_ID}"
+echo "processing the following rows in well metadata file (${metadat_well}):"
+for row in ${target_well_rows[@]}
+    do
+        echo -e "$row\t${wellprefix[$row]}"
+    done
+echo -e "\n\n"
+
+
+# for each well in batch, apply .bam --> .allc
+# variable time per well, typically 3-15 min/well
+for row in ${target_well_rows[@]} 
+do
+
+    # check for existing mapping output
+    # if final outputs exist, skip; else run mapping .bam
+    cd ${dir_proj}
+    
+    if [[ -s ${dir_proj}/${allc_out[$row]} \
+        && -s ${dir_proj}/${allctbi_out[$row]} ]]
+    then
+        echo -e "final .allc files for '${wellprefix[$row]}' already exist."
+        if [[ "${skip_complete}" == "true" ]]
+        then
+            if [[ "${check_partial}" == "true" ]]
+            then
+                echo "skip_complete = true && check_partial = true."
+                echo "doing basic test for .allc truncation..."
+                if gzip -t ${allc_out[$row]}
+                then
+                    echo -e "OK. skipping this well.\n"
+                else 
+                    echo ".allc seems truncated, deleting & re-running this well."
+                    rm ${dir_proj}/${allc_out[$row]} ${dir_proj}/${allctbi_out[$row]}
+                fi
+            else
+                "skip_complete = true && check_partial = false. skipping this well."
+                continue
+            fi
+        fi
+    else
+    
+        echo -e "\n\n.bam --> .allc to '${wellprefix[$row]}'...\n\n"
+        
+        cd ${dir_well[$row]}
+
+    # generate .allc tsv --------------------------------------------------
+    # in: SE and PE .bam files
+    # out: tab-separated file with chr, pos, seq context, methyl reads, total cov
+    #      generated separatedly for PE and SE, then joined
+    #      (for historical paired-end dev, but might be faster to join .bam first)
+    # -------------------------------------------------------------------------
+
+        # (Di.) make separate PE, SE allc files [~3-10 minutes] 
+        allcools bam-to-allc -bam ${bam_pe_filtered} --cpu 1 \
+            --reference_fasta ${ref_fasta} --output_path ${allc_PE} --convert_bam_strandness
+        allcools bam-to-allc -bam ${bam_se_filtered} --cpu 1 \
+            --reference_fasta ${ref_fasta} --output_path ${allc_SE} --convert_bam_strandness
+
+        # (Dii.) merge the .allc files into one [~5 min]
+        # before .allc generation --> .allc
+        allcools merge-allc --allc_paths ${allc_PE} ${allc_SE} --cpu 1 \
+                --output_path ${allc_final} \
+                --chrom_size_path ${ref_chromsizes}
+
+
+        # (Diii.) optional cleanup
+        # could also delete pre-filtering alignment files if not using
+        rm ${allc_PE} ${allc_PE}.tbi ${allc_SE} ${allc_SE}.tbi
+    
+
+fi
+done
+
+
+
+
+echo -e "\n\n'A04c_make_allc' completed.\n\n"
+
+
+
+echo "Job $JOB_ID.$SGE_TASK_ID ended on:   " `hostname -s`
+echo "Job $JOB_ID.$SGE_TASK_ID ended on:   " `date `
+echo " "

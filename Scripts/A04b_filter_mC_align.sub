@@ -1,0 +1,215 @@
+
+#!/bin/bash
+#$ -cwd
+#$ -o sublogs/A04b_filter_mC.$JOB_ID.$TASK_ID
+#$ -j y
+#$ -l h_rt=4:00:00,h_data=16G
+#$ -N A04b_filter_mC
+#$ -t 1-512
+#$ -hold_jid_ad A04a_bismark
+
+
+
+echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `hostname -s`
+echo "Job $JOB_ID.$SGE_TASK_ID started on:   " `date `
+echo " "
+
+
+
+
+
+# environment init -------------------------------------------------------------
+
+. /u/local/Modules/default/init/modules.sh # <--
+module load anaconda3 # <--
+conda activate snmCTseq # <--
+
+export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
+
+skip_complete=true # <-- for help with incomplete jobs
+
+
+
+# extract target filepaths -----------------------------------------------------
+
+# helper functions
+query_metadat () {
+  awk -F',' -v targetcol="$1" \
+      'NR==1 {
+                for (i=1;i<=NF;i++) {
+                    if ($i==targetcol) {assayout=i; break} }
+                print $assayout
+              }
+      NR>1 {
+                print $assayout
+            }' ${metadat_well}
+}
+
+# extract target wells, print values for log
+batchnum=($(query_metadat "batchnum"))
+nwells=${#batchnum[@]}
+
+target_well_rows=()
+for ((row=1; row<=nwells; row++))
+do
+    if [[ "${batchnum[$row]}" == "${SGE_TASK_ID}" ]]
+    then
+        target_well_rows+=($row)
+    fi
+done
+
+
+
+# filepaths associated with target rows in well-level metadata -----------------
+# (generally not customizeable because output names set by bismark)
+
+wellprefix=($(query_metadat "wellprefix"))
+dir_well=($(query_metadat "A04a_dir_bismark"))
+
+# A04a bismark mapping .bam output
+bam_pe=($(query_metadat "A04a_bam_bismark_PE"))
+bam_se1trim=($(query_metadat "A04a_bam_bismark_SE1trim"))
+bam_se2trim=($(query_metadat "A04a_bam_bismark_SE2trim"))
+bam_se1unmap=($(query_metadat "A04a_bam_bismark_SE1unmap"))
+bam_se2unmap=($(query_metadat "A04a_bam_bismark_SE2unmap"))
+
+# intermediate files
+bam_dedupe_pe=PE_dedupe.bam
+bam_merge_se=SE_merge.bam
+bam_mergesort_se=SE_mergesort.bam
+bam_dedupe_se=SE_dedupe.bam
+
+log_picard_pe=picard_PE.log
+log_picard_se=picard_SE.log
+
+sam_dedupeq10_pe=PE_dedupeq10.sam
+sam_dedupeq10_se=SE_dedupeq10.sam
+
+sam_pe_filtered=PE_filt.sam
+sam_se_filtered=SE_filt.sam
+
+# final files out
+bam_pe_filtered=PE_final.bam
+bam_se_filtered=SE_final.bam
+
+
+# print target files -----------------------------------------------------------
+
+echo "batch number: ${SGE_TASK_ID}"
+echo "processing the following rows in well metadata file (${metadat_well}):"
+for row in ${target_well_rows[@]}
+    do
+        echo -e "$row\t${wellprefix[$row]}"
+    done
+echo -e "\n\n"
+
+
+
+# for each well in batch, apply mC filtering
+# ~1-2 minutes per well
+for row in ${target_well_rows[@]} 
+do
+
+    # check for existing mapping output
+    # if final outputs exist, skip; else run mapping .bam
+    cd ${dir_proj}
+    
+    if [[ -s ${dir_well[$row]}/$bam_pe_filtered \
+        && -s ${dir_well[$row]}/$bam_se_filtered \
+        && "${skip_complete}"=="true" ]]
+    then
+        echo -e ".bam alignments for '${wellprefix[$row]}' already exist. skipping this well.'"
+    else
+    
+        echo -e "\n\napplying filters to '${wellprefix[$row]}'...\n\n"
+
+        bamlist=( ${bam_pe[$row]} ${bam_se1trim[$row]} ${bam_se1map[$row]} ${bam_se2trim[$row]} ${bam_se2map[$row]} )
+        for bamin in ${bamlist[@]}
+        do
+            if [[ ! -s $bamin ]]
+            then
+                echo "WARNING: $bamin missing or empty."
+            fi
+        done
+        
+        mkdir ${dir_proj}/${dir_well[$row]}
+        cd ${dir_proj}/${dir_well[$row]}
+        
+
+    # (B) de-deuplication -----------------------------------------------------
+    # in: paired-end .bam (name sorted), four single-end .bam (unsorted, need to sort)
+    # out: de-duplicated PE .bam, de-duplicated combined SE .bam
+    # -------------------------------------------------------------------------
+        
+        # (Bi.) PE [<1 min]
+        picard MarkDuplicates -I $(basename ${bam_pe[$row]}) \
+            --ASSUME_SORT_ORDER "queryname" --OPTICAL_DUPLICATE_PIXEL_DISTANCE 2500 \
+            --ADD_PG_TAG_TO_READS false --REMOVE_DUPLICATES \
+            -O ${bam_dedupe_pe} -M ${log_picard_pe}
+
+        # (Bii.) SE [1-2 min] 
+        samtools merge ${bam_merge_se} \
+            $(basename ${bam_se1trim[$row]}) $(basename ${bam_se2trim[$row]}) \
+            $(basename ${bam_se1unmap[$row]}) $(basename ${bam_se2unmap[$row]})
+            
+        samtools sort ${bam_merge_se} > ${bam_mergesort_se}
+        
+        picard MarkDuplicates -I ${bam_mergesort_se} \
+            --OPTICAL_DUPLICATE_PIXEL_DISTANCE 2500 \
+            --ADD_PG_TAG_TO_READS false --REMOVE_DUPLICATES \
+            -O ${bam_dedupe_se} -M ${log_picard_se}
+
+        # (Biii.) clean-up
+        rm ${bam_merge_se} ${bam_mergesort_se}
+
+
+
+    # (C) read-level filtering ------------------------------------------------
+    # via MAPQ, mCH levels to remove ambig/RNA reads
+    # MAPQ >= 10 & .sam conversion --> then perl script to output annotations
+    # -------------------------------------------------------------------------
+
+        # (Ci.) PE [1-3 min]
+        # this assumes *any* read meeting the filtering criteria is kept;
+        # if both R1 & R2 of pair need to pass filtering criteria (AND instead of OR),
+        #     needs an added annotations --> wide step like the below
+        # sed '$!N;s/\n/ /' ${sam_dedupe_pe_q10}_annotations \
+        #     | awk '{print ( ($3 == "DNA") && ($6 == "DNA") )}' \
+        #     | awk '{print $0}1' > ${sam_dedupe_pe_q10}_annotations_bothpairs
+        # then awk filter off of this 'bothpairs' file
+
+        samtools view -hq 10 ${bam_dedupe_pe} > ${sam_dedupeq10_pe}
+        perl ${dir_proj}/Scripts/A04b_classify_mCT_reads_bismark.pl ${sam_dedupeq10_pe}
+        awk 'NR == FNR { if ($0=="" || $3=="DNA") line[NR]; next } (FNR in line)' \
+            ${sam_dedupeq10_pe}_annotations ${sam_dedupeq10_pe} |
+            samtools view -b - | samtools sort - > ${bam_pe_filtered}
+        samtools index ${bam_pe_filtered}
+        
+        # (Cii.) SE [1-3 min]
+        samtools view -hq 10 ${bam_dedupe_se} > ${sam_dedupeq10_se}
+        perl ${dir_proj}/Scripts/A04b_classify_mCT_reads_bismark.pl ${sam_dedupeq10_se}
+        awk 'NR == FNR { if ($0=="" || $3=="DNA") line[NR]; next } (FNR in line)' \
+            ${sam_dedupeq10_se}_annotations ${sam_dedupeq10_se} |
+            samtools view -b - | samtools sort - > ${bam_se_filtered}
+        samtools index ${bam_se_filtered}
+
+        # (Ciii.) optional clean-up (comment out as desired)
+        rm ${bam_dedupe_pe} ${sam_dedupeq10_pe}
+        rm ${bam_dedupe_se} ${sam_dedupeq10_se}
+        # rm ${sam_dedupeq10_pe}_annotations ${sam_dedupeq10_se}_annotations
+        
+
+fi
+done
+
+
+
+
+
+echo -e "\n\n'A04b_filter_mC' completed.\n\n"
+
+
+
+echo "Job $JOB_ID.$SGE_TASK_ID ended on:   " `hostname -s`
+echo "Job $JOB_ID.$SGE_TASK_ID ended on:   " `date `
+echo " "

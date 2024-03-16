@@ -3,9 +3,9 @@
 #$ -cwd
 #$ -o sublogs/A01a_merge_lanes.$JOB_ID.$TASK_ID
 #$ -j y
-#$ -l h_rt=12:00:00,h_data=16G
+#$ -l h_rt=8:00:00,h_data=16G
 #$ -N A01a_merge_lanes
-#$ -t 1-16
+#$ -t 1-32
 
 
 
@@ -17,7 +17,7 @@ echo " "
 
 
 
-# environment init ------------------—------------------—-----------------------
+# environment init -------------------------------------------------------------
 
 . /u/local/Modules/default/init/modules.sh # <--
 
@@ -25,9 +25,12 @@ export $(cat snmCT_parameters.env | grep -v '^#' | xargs)  # <--
 
 
 
-# get list of plates, files ------------------—------------------—--------------
+# get list of plates, files ----------------------------------------------------
 
-mkdir fastq_raw
+if [[ ! -s fastq_raw ]]
+then
+    mkdir fastq_raw
+fi
 
 list_of_plates=(
   $(for plateid in ${dir_originalfastq}/*R1*;
@@ -45,7 +48,7 @@ echo "target plate prefix:" ${target_plate}
 
 
 
-# merge R1, then R2 files across lanes ------------------—------------------—---
+# merge R1, then R2 files across lanes -----------------------------------------
 
 filesin_r1=($(ls ${dir_originalfastq}/*${target_plate}*R1*fastq.gz))
 filesin_r2=($(ls ${dir_originalfastq}/*${target_plate}*R2*fastq.gz))
@@ -66,7 +69,7 @@ cat ${filesin_r2[@]} > fastq_raw/${target_plate}_R2.fastq.gz
 
 
 
-# check output files ------------------—------------------—---------------------
+# check output files -----------------------------------------------------------
 
 echo -e "\n\nchecking output file sizes."
 du -h fastq_raw/${target_plate}*fastq.gz

@@ -1,0 +1,187 @@
+
+#!/bin/bash
+#$ -cwd
+#$ -o sublogs/A04d_check_bismark.$JOB_ID
+#$ -j y
+#$ -l h_rt=1:00:00,h_data=8G
+#$ -N A04d_check_bismark
+#$ -hold_jid A04c_make_allc
+
+
+
+echo "Job $JOB_ID started on:   " `hostname -s`
+echo "Job $JOB_ID started on:   " `date `
+echo " "
+
+
+
+
+
+# environment init -------------------------------------------------------------
+
+export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
+
+
+
+# helper functions / extract target filepaths ----------------------------------
+
+query_metadat () {
+  awk -F',' -v targetcol="$1" \
+      'NR==1 {
+                for (i=1;i<=NF;i++) {
+                    if ($i==targetcol) {assayout=i; break} }
+                print $assayout
+              } 
+      NR>1 {
+                print $assayout
+            }' ${metadat_well}
+}
+
+check_filepaths_in_assay() {
+    for file in $@
+        do 
+        if [[ ! -s ${file} ]]
+            then
+                echo "missing '${file}'"
+            fi
+        done
+}
+
+check_filepath_by_batch() {
+target_array=($@)
+batches_to_rerun=()
+for ((target_batch=1; target_batch<=nbatches; target_batch++))
+    do
+        target_well_rows=()
+        for ((row=1; row<=nwells; row++))
+        do
+            if [[ "${batchnum[$row]}" == "${target_batch}" ]]
+            then
+                target_well_rows+=($row)
+            fi
+        done
+    
+        batch_file_list=${target_array[@]: ${target_well_rows[0]}:${#target_well_rows[@]} }
+    
+        num_files_missing=$(check_filepaths_in_assay ${batch_file_list[@]} | wc -l)
+
+        if [[ ${num_files_missing} > 0 ]]
+        then
+            batches_to_rerun+=(${target_batch})
+            echo -e "${target_batch} \t ${num_files_missing}"
+        fi
+    done 
+    
+    if [[ ${#batches_to_rerun[@]} > 0 ]]
+    then
+        echo "batches to re-run:"
+        echo "${batches_to_rerun[*]}"        
+    fi
+}
+
+batchnum=($(query_metadat "batchnum"))
+
+nwells=${#batchnum[@]}
+nbatches=${batchnum[-1]}
+
+
+
+# apply checks for A04a output -------------------------------------------------
+
+echo "-----------------------------------------------------------------"
+echo "A. printing number of .allc files missing (by batch)... "
+echo "-----------------------------------------------------------------"
+
+
+bamfinalpe=($(query_metadat "A04b_bamfinal_PE"))
+bamfinalse=($(query_metadat "A04b_bamfinal_SE"))
+
+allcgz=($(query_metadat "A04c_allc_final"))
+allctbi=($(query_metadat "A04c_allctbi_final"))
+
+echo "checking final PE .bam:"
+echo -e "batchnum\tnum_missing"
+check_filepath_by_batch ${bamfinalpe[@]}
+
+echo "checking final SE .bam:"
+echo -e "batchnum\tnum_missing"
+check_filepath_by_batch ${bamfinalse[@]}
+
+echo "checking allc.tsv.gz:"
+echo -e "batchnum\tnum_missing"
+check_filepath_by_batch ${allcgz[@]}
+
+echo "checking allc.tsv.gz.tbi:"
+echo -e "batchnum\tnum_missing"
+check_filepath_by_batch ${allctbi[@]}
+
+
+
+echo -e "\n\n\nsuggest re-running and checking sublog output of above batches."
+
+
+
+echo -e "\n\n-----------------------------------------------------------------"
+echo "B. checking each expected file (from ${metadat_well})"
+echo -e "-----------------------------------------------------------------\n"
+
+echo -e "\nchecking PE_final.bam files:\n"
+echo -e "batchnum\tnum_missing"
+check_filepaths_in_assay ${bamfinalpe[@]}
+
+echo -e "\nchecking SE_final.bam files:\n"
+echo -e "batchnum\tnum_missing"
+check_filepaths_in_assay ${bamfinalse[@]}
+
+echo -e "\nchecking .allc.gz files:\n"
+check_filepaths_in_assay ${allcgz[@]}
+
+echo -e "\nchecking .allc.gz.tbi files:\n"
+check_filepaths_in_assay ${allctbi[@]}
+
+
+echo -e "\n* checks the A04a output columns of 'metadat_well' if the file exists and is non-empty."
+echo "* if none missing, will only output target column names above."
+echo "* if some declared 'missing' but all other checks OK, may just be no/few reads surviving trimming."
+echo "  (check 'fastq_demultip/' and associated fastp logs e.g., fastq_trimmed/wellprefix.html report)"
+
+
+
+
+echo -e "\n\n-----------------------------------------------------------------"
+echo "B. checking bam and allc validity."
+echo -e "-----------------------------------------------------------------\n"
+
+
+echo "checking if 'completed' in sublogs/A06a_star* output."
+echo "if any filename is printed, the associated batch may have not completed mapping."
+
+grep -c "'A04a_bismark' completed" sublogs/A04a_bismark* | awk -F ":" '$2==0 {print $1}'
+grep -c "'A04b_filter_mC' completed" sublogs/A04b_filter_mC* | awk -F ":" '$2==0 {print $1}'
+grep -c "'A04c_make_allc' completed" sublogs/A04c_make_allc* | awk -F ":" '$2==0 {print $1}'
+
+
+
+
+echo -e "\n\n-----------------------------------------------------------------"
+echo "B. checking log files for issues."
+echo -e "-----------------------------------------------------------------\n"
+
+
+echo "checking if 'completed' in sublogs/A06a_star* output."
+echo "if any filename is printed, the associated batch may have not completed mapping."
+
+grep -c "'A04a_bismark' completed" sublogs/A04a_bismark* | awk -F ":" '$2==0 {print $1}'
+grep -c "'A04b_filter_mC' completed" sublogs/A04b_filter_mC* | awk -F ":" '$2==0 {print $1}'
+grep -c "'A04c_make_allc' completed" sublogs/A04c_make_allc* | awk -F ":" '$2==0 {print $1}'
+
+
+
+
+
+echo -e "\n\n'A04d_check_bismark' completed.\n\n"
+
+
+echo "Job $JOB_ID ended on:   " `hostname -s`
+echo "Job $JOB_ID ended on:   " `date `
+echo " "

@@ -5,7 +5,7 @@
 #$ -j y
 #$ -N A08_compile_metadata
 #$ -l h_rt=0:30:00,h_data=4G
-#$ -hold_jid A06_compile_RNA,A07_compile_RNA
+#$ -hold_jid A05_compile_DNA,A07_compile_RNA
 
 
 
@@ -15,7 +15,7 @@ echo " "
 
 
 
-# environment init ------------------—------------------—---------------------
+# environment init -----------------------------------------------------------
 
 . /u/local/Modules/default/init/modules.sh # <--
 module load anaconda3 # <--
@@ -25,7 +25,7 @@ export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
 
 
 
-# run metadat scripts ------------------—------------------—------------------
+# run metadat scripts --------------------------------------------------------
 
 # - recommend running these interactively in python/Jupyter to check outputs
 # - have a distinct RNA/DNA script available in case one modality finishes first

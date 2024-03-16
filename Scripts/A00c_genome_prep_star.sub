@@ -18,7 +18,7 @@ echo " "
 
 
 
-# environment init ------------------—------------------—-----------------------
+# environment init -------------------------------------------------------------
 
 . /u/local/Modules/default/init/modules.sh # <--
 module load anaconda3 # <--
@@ -28,7 +28,7 @@ export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
 
 
 
-# star index ------------------—------------------—-----------------------------
+# star index -------------------------------------------------------------------
 # assumes 2x150 paired-end
 
 STAR --runThreadN 8 \

@@ -1,12 +1,12 @@
 
 #!/bin/bash
 #$ -cwd
-#$ -o sublogs/A05e_featurecounts.$JOB_ID.$TASK_ID
+#$ -o sublogs/A06d_featurecounts.$JOB_ID.$TASK_ID
 #$ -j y
-#$ -l h_rt=16:00:00,h_data=24G
-#$ -N A05e_featurecounts
-#$ -t 1-16
-#$ -hold_jid A05d_starfilt_check
+#$ -l h_rt=3:00:00,h_data=24G
+#$ -N A06d_featurecounts
+#$ -t 1-32
+#$ -hold_jid A06b_starfilt
 
 
 
@@ -18,7 +18,7 @@ echo " "
 
 
 
-# environment init ------------------—------------------—-----------------------
+# environment init -------------------------------------------------------------
 
 . /u/local/Modules/default/init/modules.sh # <--
 module load anaconda3 # <--
@@ -29,12 +29,11 @@ export $(cat snmCT_parameters.env | grep -v '^#' | xargs) # <--
 dir_out_gene=featurecounts_gene/ # <-- 
 dir_out_exon=featurecounts_exon/ # <--
 
+quantify_exons="true" # <-- (typically we analyze combined exon+intron)
 
 
-# extract target filepaths ------------------—------------------—---------------
 
-mkdir ${dir_out_gene}
-mkdir ${dir_out_exon}
+# extract target filepaths -----------------------------------------------------
 
 # helper functions
 query_metadat () {
@@ -68,11 +67,11 @@ done
 # filepaths associated with target rows in well-level metadata -----------------
 
 wellprefix=($(query_metadat "wellprefix"))
-dir_well=($(query_metadat "A05a_dir_star"))
+dir_well=($(query_metadat "A06a_dir_star"))
 
-bam_pe=($(query_metadat "A05c_bam_starfilt_PE"))
-bam_se1=($(query_metadat "A05c_bam_starfilt_SE1"))
-bam_se2=($(query_metadat "A05c_bam_starfilt_SE2"))
+bam_pe=($(query_metadat "A06b_bam_starfilt_PE"))
+bam_se1=($(query_metadat "A06b_bam_starfilt_SE1"))
+bam_se2=($(query_metadat "A06b_bam_starfilt_SE2"))
 
 
 
@@ -111,45 +110,58 @@ done)
 
 
 
-# featurecounts on genes ------------------—------------------—-----------------
-# usually <1 min/well --> ~6 hrs per plate
+# featurecounts on genes -------------------------------------------------------
+# usually <1 min/well --> <1 hr/plate
+
+if [[ ! -s ${dir_out_gene} ]]
+then
+    mkdir ${dir_out_gene}
+fi
 
 echo "running gene featureCounts on paired-end alignments (mapping_star/*/PE.Final.bam)."
 featureCounts -p -T 4 -t gene -a ${ref_gtf} \
     -o ${dir_out_gene}/PE_${SGE_TASK_ID} --donotsort --tmpDir ${dir_scratch} ${pe_files}
 
 echo "running gene featureCounts on single-end R1 alignments (mapping_star/*/SE1.Final.bam)."
-se1_files=${bam_se1[@]: ${target_well_rows[0] }:${#target_well_rows[@] } }
 featureCounts -T 4 -t gene -a ${ref_gtf} \
     -o ${dir_out_gene}/SE1_${SGE_TASK_ID} --donotsort --tmpDir ${dir_scratch} ${se1_files}
 
 echo "running gene featureCounts on single-end R2 alignments (mapping_star/*/SE2.Final.bam)."
-se2_files=${bam_se2[@]: ${target_well_rows[0] }:${#target_well_rows[@] } }
 featureCounts -T 4 -t gene -a ${ref_gtf} \
     -o ${dir_out_gene}/SE2_${SGE_TASK_ID} --donotsort --tmpDir ${dir_scratch} ${se2_files}
 
 
 
-# featurecounts on exons ------------------—------------------—-----------------
+# featurecounts on exons -------------------------------------------------------
+# usually <1 min/well --> <1 hr/plate
 
-echo "running exon featureCounts on paired-end alignments (mapping_star/*/PE.Final.bam)."
-featureCounts -p -T 4 -t exon -a ${ref_gtf} \
-    -o ${dir_out_exon}/PE_${SGE_TASK_ID} --donotsort --tmpDir ${dir_scratch} ${pe_files}
+if [[ ${quantify_exons} == "true" ]]
+then
 
-echo "running exon featureCounts on single-end R1 alignments (mapping_star/*/SE1.Final.bam)."
-featureCounts -T 4 -t exon -a ${ref_gtf} \
-    -o ${dir_out_exon}/SE1_${SGE_TASK_ID} --donotsort --tmpDir ${dir_scratch} ${se1_files}
+    if [[ ! -s ${dir_out_exon} ]]
+    then
+        mkdir ${dir_out_exon}
+    fi
 
-echo "running exon featureCounts on single-end R2 alignments (mapping_star/*/SE2.Final.bam)."
-featureCounts -T 4 -t exon -a ${ref_gtf} \
-    -o ${dir_out_exon}/SE2_${SGE_TASK_ID} --donotsort --tmpDir ${dir_scratch} ${se2_files}
+    echo "running exon featureCounts on paired-end alignments (mapping_star/*/PE.Final.bam)."
+    featureCounts -p -T 4 -t exon -a ${ref_gtf} \
+        -o ${dir_out_exon}/PE_${SGE_TASK_ID} --donotsort --tmpDir ${dir_scratch} ${pe_files}
+
+    echo "running exon featureCounts on single-end R1 alignments (mapping_star/*/SE1.Final.bam)."
+    featureCounts -T 4 -t exon -a ${ref_gtf} \
+        -o ${dir_out_exon}/SE1_${SGE_TASK_ID} --donotsort --tmpDir ${dir_scratch} ${se1_files}
+
+    echo "running exon featureCounts on single-end R2 alignments (mapping_star/*/SE2.Final.bam)."
+    featureCounts -T 4 -t exon -a ${ref_gtf} \
+        -o ${dir_out_exon}/SE2_${SGE_TASK_ID} --donotsort --tmpDir ${dir_scratch} ${se2_files}
+
+fi
 
 
 
 
 
-
-echo -e "\n\n'A05e_featurecounts' completed.\n\n"
+echo -e "\n\n'A06d_featurecounts' completed.\n\n"
 
 
 
