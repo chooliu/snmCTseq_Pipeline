@@ -1,5 +1,13 @@
 # Public Release, v1
 
+
+# version 1.2 
+
+## v1.2.1
+
+Minor fix: commenting out parts of A00d, A01b, A01c that should only be run if executing interactively (code chunk starting with "if running interactively [...] os.environ [...]")
+
+
 ## v1.2.0
 
 **Major changes:**
@@ -28,6 +36,7 @@
     - metadata aggregation functions were not all robust to missing inputs. now checks if the file exists and skips files as needed.
     - summarizes numbers of missing values and missing filepaths to help investigate whether particular batches were incomplete.
 
+# version 1.1
 
 ## v1.1.3
 
@@ -65,6 +74,8 @@ Minor fixes:
 - minor formatting updates, added more comments in Notebooks & D
 - unfortunately, notebook metadata cleaning not working (e.g., cellid, ipykernel names updated -- ignore these in the commit)
 
+# version 1.0
+
 ## v1.1.0
 - Added this documentation, public Github in prep for production-scale consortium work.
 - Parameters now kept in one environmental variable file (`snmCT_parameters.env`) in lieu of specifying parameters like `$projdir` that were repeated at the start of almost every script. This requires an `xargs --> export` command & `import os` to read environmental variables for certain python scripts.
@@ -77,6 +88,7 @@ Minor fixes:
 - Some code now clunkier (reliance on `${basharrays[@]}`), but helps with failed job checking and decreases the degree of user input required at each stage.
 
 # Prototypes, v0 
+
 * **v0.5:** Changes to .bam inputs for STAR mCH/CH (although not the underlying filtering script).
     - Some issues with folks using different versions of `subread`/`featureCounts` (tested on v2.0.1). Later versions more stringent, e.g., throw errors instead of warnings if a mixture of paired-end and single-end reads are input for quantification. 
     - Relevant because "mapping singletons" (e.g., R2 aligns but R1 does not) were previously included in the PE-alignments and fed into featureCounts along with proper pairs; unclear based on developer comments if these were correctly quantified. To address this, we explicitly now subset to only proper pairs before filtering and `featureCounts`.

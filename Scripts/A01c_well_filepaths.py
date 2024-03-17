@@ -14,19 +14,19 @@ import pandas as pd
 import numpy as np
 import os
 
-# if running interactively, need to load some lines from snmCT_parameters.env
-# or manually spec os.environ -- e.g., via the below loop
-# (use absolute versus relative path of parameters.env file if below not working!)
-envvar_needed = ['dir_proj', 'dir_originalfastq', 'metadat_plate', 'metadat_well']
-try:
-    os.environ['metadat_well']
-except KeyError:
-    envspec = pd.read_csv("snmCT_parameters.env", sep = "=", comment="#", header = None
-               ).set_axis(['varname', 'varpath'], axis = 1
-               ).query('varname in @envvar_needed')
-    for index, row in envspec.iterrows():
-        os.environ[row["varname"]] = row["varpath"]
-os.chdir(os.environ['dir_proj'])
+# # if running interactively, need to load some lines from snmCT_parameters.env
+# # or manually spec os.environ -- e.g., via the below loop
+# # (use absolute versus relative path of parameters.env file if below not working!)
+# envvar_needed = ['dir_proj', 'dir_originalfastq', 'metadat_plate', 'metadat_well']
+# try:
+#     os.environ['metadat_well']
+# except KeyError:
+#     envspec = pd.read_csv("snmCT_parameters.env", sep = "=", comment="#", header = None
+#                ).set_axis(['varname', 'varpath'], axis = 1
+#                ).query('varname in @envvar_needed')
+#     for index, row in envspec.iterrows():
+#         os.environ[row["varname"]] = row["varpath"]
+# os.chdir(os.environ['dir_proj'])
 
 
 

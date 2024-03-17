@@ -6,7 +6,7 @@
 
 ## Library Structure
 
-![Layout of snm3C library sequences.](../Documentation/library_structure.png)
+![Layout of snmCT library sequences.](../Documentation/library_structure.png)
 Each read contains either bisulfite-converted DNA sequence *or* fully methylated transcriptomic cDNA (these are separated _in silico_). For expected nucleotide sequences, please see our library's [seqspec](https://igvf.github.io/seqspec/specs/snmCTseq/spec.html).
 
 
